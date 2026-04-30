@@ -5,10 +5,11 @@ import { useActivityFeed } from '@/hooks/useActivityFeed';
 import { EmptyState } from '../common/StateMessage';
 import Skeleton from '../common/Skeleton';
 import Link from 'next/link';
+import ApiBanner from '../common/ApiBanner';
 
-export default function ActivityList() {
+export default function ActivityList({ limit }: { limit?: number } = {}) {
   const wallet = useWallet();
-  const { data, isLoading } = useActivityFeed(wallet.connected);
+  const { data, isLoading, error, refetch, isMock } = useActivityFeed(wallet.address);
 
   if (!wallet.connected) {
     return <EmptyState title='No activity yet' description='Connect and make your first trade to earn points.' />;
@@ -24,13 +25,25 @@ export default function ActivityList() {
     );
   }
 
+  if (error && !isMock) {
+    return (
+      <ApiBanner
+        message="Failed to load activity"
+        action={<button onClick={() => refetch()} className='rounded-full bg-white/10 px-3 py-1 text-xs'>Retry</button>}
+      />
+    );
+  }
+
   if (!data?.length) {
     return <EmptyState title='No activity yet' description='Once you trade, your history will show up here.' />;
   }
 
+  const items = limit ? data.slice(0, limit) : data;
+
   return (
     <div className='space-y-3'>
-      {data.map((item) => (
+      {error && isMock && <ApiBanner message="Showing cached activity while API is offline." />}
+      {items.map((item) => (
         <div key={item.id} className='rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-white'>
           <div className='flex items-center justify-between'>
             <div>
@@ -49,6 +62,7 @@ export default function ActivityList() {
           </div>
         </div>
       ))}
+      {isMock && !error && <p className='text-xs text-white/50'>Displaying cached activity feed.</p>}
     </div>
   );
 }

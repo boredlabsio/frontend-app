@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { ToastProvider } from '@/components/common/ToastProvider';
+import QueryProvider from '@/lib/providers/QueryProvider';
 import AppHeader from '@/components/layout/AppHeader';
 import { SoundProvider } from '@/lib/providers/SoundProvider';
 import AppWagmiProvider from '@/lib/providers/WagmiProvider';
@@ -33,10 +34,12 @@ export default function RootLayout({
         <AppWagmiProvider>
           <WalletProvider>
             <SoundProvider>
-              <ToastProvider>
-                <AppHeader />
-                <main className="mx-auto min-h-[calc(100vh-64px)] max-w-6xl px-4 py-8">{children}</main>
-              </ToastProvider>
+              <QueryProvider>
+                <ToastProvider>
+                  <AppHeader />
+                  <main className="mx-auto min-h-[calc(100vh-64px)] max-w-6xl px-4 py-8">{children}</main>
+                </ToastProvider>
+              </QueryProvider>
             </SoundProvider>
           </WalletProvider>
         </AppWagmiProvider>

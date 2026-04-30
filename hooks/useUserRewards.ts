@@ -1,47 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api, apiAvailable } from '@/lib/api/client';
 import { userSummaryMock } from '@/lib/mockData';
+import type { UserRewardsResponse } from '@/lib/api/types';
 
-function microtask(fn: () => void) {
-  if (typeof queueMicrotask === 'function') queueMicrotask(fn);
-  else setTimeout(fn, 0);
-}
+export function useUserRewards(address?: string | null) {
+  const enabled = apiAvailable && Boolean(address);
 
-export function useUserRewards(connected: boolean) {
-  const [data, setData] = useState<typeof userSummaryMock | null>(null);
-  const [isLoading, setLoading] = useState(true);
+  const query = useQuery<UserRewardsResponse>({
+    queryKey: ['userRewards', address],
+    queryFn: () => api.getUserRewards(address as string),
+    enabled,
+    staleTime: 30_000
+  });
 
-  useEffect(() => {
-    let cancelled = false;
+  const error = query.isError ? (query.error as Error) : null;
+  const isMock = !apiAvailable || Boolean(error);
+  const fallback: UserRewardsResponse = userSummaryMock as UserRewardsResponse;
+  const data: UserRewardsResponse | null = query.data ?? (isMock ? fallback : enabled ? null : fallback);
 
-    if (!connected) {
-      microtask(() => {
-        if (!cancelled) {
-          setData(null);
-          setLoading(false);
-        }
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    microtask(() => {
-      if (!cancelled) setLoading(true);
-    });
-
-    const timeout = setTimeout(() => {
-      if (cancelled) return;
-      setData(userSummaryMock);
-      setLoading(false);
-    }, 700);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timeout);
-    };
-  }, [connected]);
-
-  return { data, isLoading } as const;
+  return {
+    data,
+    isLoading: query.isPending && enabled,
+    error,
+    isMock,
+    refetch: query.refetch
+  } as const;
 }

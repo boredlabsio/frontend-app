@@ -9,10 +9,11 @@ import { useEffect, useState } from 'react';
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 import ConfettiBurst from '../common/confetti';
 import { useSound } from '@/lib/providers/SoundProvider';
+import ApiBanner from '../common/ApiBanner';
 
 export default function SelfRankCard() {
   const wallet = useWallet();
-  const { data, isLoading } = useLeaderboard(wallet.address);
+  const { data, isLoading, error, refetch, isMock } = useLeaderboard('all', wallet.address);
   const { showToast } = useToast();
   const prefersReducedMotion = usePrefersReducedMotion();
   const sound = useSound();
@@ -38,6 +39,10 @@ export default function SelfRankCard() {
 
   if (isLoading) {
     return <Skeleton className="h-32 w-full" />;
+  }
+
+  if (error) {
+    return <ApiBanner message="Failed to load leaderboard" action={<button onClick={() => refetch()} className='rounded-full bg-white/10 px-3 py-1 text-xs'>Retry</button>} />;
   }
 
   if (!wallet.connected) {
@@ -82,6 +87,7 @@ export default function SelfRankCard() {
             </button>
           </div>
         </div>
+        {isMock && !error && <p className='mt-2 text-xs text-white/60'>Showing sample data until the API responds.</p>}
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ export default function RewardsDashboardPage() {
       <ReferralBlock />
       <div className='space-y-3'>
         <h3 className='text-lg font-semibold'>Recent rewards</h3>
-        <ActivityList />
+        <ActivityList limit={3} />
       </div>
     </div>
   );

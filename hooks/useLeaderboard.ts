@@ -1,38 +1,34 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api, apiAvailable } from '@/lib/api/client';
 import { LeaderboardEntry, leaderboardMock } from '@/lib/mockData';
+import type { LeaderboardResponse } from '@/lib/api/types';
 
-function microtask(fn: () => void) {
-  if (typeof queueMicrotask === 'function') queueMicrotask(fn);
-  else setTimeout(fn, 0);
+function mapToEntries(entries: LeaderboardEntry[], selfAddress?: string | null) {
+  if (!selfAddress) return entries;
+  const lower = selfAddress.toLowerCase();
+  return entries.map((entry) => ({ ...entry, isSelf: entry.address.toLowerCase() === lower }));
 }
 
-export function useLeaderboard(selfAddress?: string | null) {
-  const [data, setData] = useState<LeaderboardEntry[] | null>(null);
-  const [isLoading, setLoading] = useState(true);
+export function useLeaderboard(windowKey: 'all' | '7d' | '24h' = 'all', selfAddress?: string | null) {
+  const query = useQuery<LeaderboardResponse>({
+    queryKey: ['leaderboard', windowKey],
+    queryFn: () => api.getLeaderboard(windowKey),
+    enabled: apiAvailable,
+    staleTime: 60_000
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    microtask(() => {
-      if (!cancelled) setLoading(true);
-    });
+  const error = query.isError ? (query.error as Error) : null;
+  const isMock = !apiAvailable || Boolean(error);
+  const base = query.data ?? leaderboardMock;
+  const data = mapToEntries(base, selfAddress);
 
-    const timeout = setTimeout(() => {
-      if (cancelled) return;
-      const mapped = leaderboardMock.map((entry) => ({
-        ...entry,
-        isSelf: selfAddress ? entry.address.toLowerCase() === selfAddress.toLowerCase() : entry.isSelf
-      }));
-      setData(mapped);
-      setLoading(false);
-    }, 600);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timeout);
-    };
-  }, [selfAddress]);
-
-  return { data, isLoading } as const;
+  return {
+    data,
+    isLoading: query.isPending && apiAvailable,
+    error,
+    isMock,
+    refetch: query.refetch
+  } as const;
 }

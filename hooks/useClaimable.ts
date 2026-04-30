@@ -2,23 +2,24 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api, apiAvailable } from '@/lib/api/client';
-import { activityMock } from '@/lib/mockData';
-import type { ActivityItemApi, ActivityResponse } from '@/lib/api/types';
+import type { ClaimableResponse } from '@/lib/api/types';
 
-export function useActivityFeed(address?: string | null) {
+const fallback: ClaimableResponse = { claimable: 0 };
+
+export function useClaimable(address?: string | null) {
   const enabled = apiAvailable && Boolean(address);
 
-  const query = useQuery<ActivityResponse>({
-    queryKey: ['activity', address],
-    queryFn: () => api.getActivity(address as string),
+  const query = useQuery<ClaimableResponse>({
+    queryKey: ['claimable', address],
+    queryFn: () => api.getClaimable(address as string),
     enabled,
-    staleTime: 15_000
+    staleTime: 30_000
   });
 
   const error = query.isError ? (query.error as Error) : null;
   const isMock = !apiAvailable || Boolean(error);
 
-  const data: ActivityItemApi[] = query.data?.items ?? (isMock ? activityMock : []);
+  const data: ClaimableResponse | null = query.data ?? (isMock ? fallback : enabled ? null : fallback);
 
   return {
     data,

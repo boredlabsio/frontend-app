@@ -66,7 +66,7 @@ export default function Home() {
             Open activity
           </Link>
         </div>
-        <ActivityList />
+        <ActivityList limit={3} />
       </section>
     </div>
   );
