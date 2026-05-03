@@ -1,11 +1,19 @@
+'use client';
+
 import Link from 'next/link';
 import RewardsStatsGrid from '@/components/rewards/RewardsStatsGrid';
 import ClaimCard from '@/components/rewards/ClaimCard';
 import ActivityList from '@/components/rewards/ActivityList';
 import { leaderboardMock } from '@/lib/mockData';
+import OnboardingBanner from '@/components/common/OnboardingBanner';
+import NextActionHint from '@/components/common/NextActionHint';
+import { useWallet } from '@/lib/providers/WalletProvider';
+import TestModeGate, { useTestModeEnabled } from '@/components/common/TestModeGate';
 
 export default function Home() {
   const featured = leaderboardMock[0];
+  const wallet = useWallet();
+  const testModeEnabled = useTestModeEnabled();
 
   return (
     <div className="space-y-8">
@@ -24,7 +32,17 @@ export default function Home() {
             Open rewards hub
           </Link>
         </div>
+        <div className="mt-3">
+          <NextActionHint
+            message={wallet.connected ? 'Browse launches below and place a Sepolia trade to increase your score.' : 'Connect a Sepolia wallet to unlock your onboarding checklist.'}
+            tone={wallet.connected ? 'success' : 'warn'}
+          />
+        </div>
       </section>
+
+      <TestModeGate>
+        <OnboardingBanner />
+      </TestModeGate>
 
       <section className="grid gap-6 md:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 text-white">
@@ -40,11 +58,13 @@ export default function Home() {
           <p className="mt-2 text-lg font-semibold">#{featured.rank}</p>
           <p className="text-sm text-white/60">{featured.address.slice(0, 6)}…{featured.address.slice(-4)}</p>
           <p className="text-sm text-white/60">{featured.points} pts · {featured.volumeEth} ETH volume</p>
+          <NextActionHint message="Be the next top wallet by completing a live trade." tone="info" />
         </div>
         <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 text-white">
           <p className="text-xs uppercase tracking-wide text-white/60">Leaderboard reset</p>
           <p className="mt-2 text-lg font-semibold">3d 12h</p>
           <p className="text-sm text-white/60">Share your referral link to climb faster.</p>
+          <NextActionHint message="Refer friends before the reset to lock in the next badge." tone="info" />
         </div>
       </section>
 
@@ -57,6 +77,14 @@ export default function Home() {
         </div>
         <RewardsStatsGrid />
         <ClaimCard />
+        <TestModeGate>
+          {!testModeEnabled && (
+            <NextActionHint
+              message="Test rewards preview only loads on localhost or when NEXT_PUBLIC_TEST_MODE=true."
+              tone="warn"
+            />
+          )}
+        </TestModeGate>
       </section>
 
       <section className="space-y-4">

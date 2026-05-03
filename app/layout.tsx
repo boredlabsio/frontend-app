@@ -7,6 +7,7 @@ import AppHeader from '@/components/layout/AppHeader';
 import { SoundProvider } from '@/lib/providers/SoundProvider';
 import AppWagmiProvider from '@/lib/providers/WagmiProvider';
 import { WalletProvider } from '@/lib/providers/WalletProvider';
+import TestModeGate from '@/components/common/TestModeGate';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -36,6 +37,11 @@ export default function RootLayout({
             <SoundProvider>
               <QueryProvider>
                 <ToastProvider>
+                  <TestModeGate>
+                    <div className="w-full border-b border-amber-400/30 bg-amber-500/10 text-center text-xs text-amber-100">
+                      Sepolia Test Mode · Test rewards only · Transactions do not hold mainnet value
+                    </div>
+                  </TestModeGate>
                   <AppHeader />
                   <main className="mx-auto min-h-[calc(100vh-64px)] max-w-6xl px-4 py-8">{children}</main>
                 </ToastProvider>

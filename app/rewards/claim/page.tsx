@@ -4,6 +4,8 @@ import { useWallet } from '@/lib/providers/WalletProvider';
 import { useToast } from '@/components/common/ToastProvider';
 import { useSound } from '@/lib/providers/SoundProvider';
 import { EmptyState } from '@/components/common/StateMessage';
+import NextActionHint from '@/components/common/NextActionHint';
+import ConfusionFAQ from '@/components/rewards/ConfusionFAQ';
 
 export default function ClaimPage() {
   const wallet = useWallet();
@@ -16,6 +18,7 @@ export default function ClaimPage() {
 
   return (
     <div className='space-y-6'>
+      <NextActionHint message='Sepolia mode only simulates claims. Production claims require the rewards distributor.' tone='info' />
       <div className='rounded-2xl border border-white/10 bg-slate-900/70 p-6 text-white'>
         <p className='text-sm text-white/70'>Claimable points</p>
         <p className='text-4xl font-semibold'>18</p>
@@ -38,6 +41,7 @@ export default function ClaimPage() {
           <li>⏳ Weekly window opens in 3d</li>
         </ul>
       </div>
+      <ConfusionFAQ />
     </div>
   );
 }

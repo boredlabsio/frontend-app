@@ -1,6 +1,12 @@
+'use client';
+
 import ActivityList from '@/components/rewards/ActivityList';
+import NextActionHint from '@/components/common/NextActionHint';
+import { useWallet } from '@/lib/providers/WalletProvider';
 
 export default function ActivityPage() {
+  const wallet = useWallet();
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-sm text-white/70">
@@ -9,6 +15,10 @@ export default function ActivityPage() {
         <button className="rounded-full bg-white/5 px-3 py-1">Swaps</button>
         <span className="ml-auto text-xs">Window: 7 days</span>
       </div>
+      <NextActionHint
+        message={wallet.connected ? 'New trades will land here within one indexer cycle (~15s).' : 'Connect a wallet to see the activity timeline.'}
+        tone={wallet.connected ? 'info' : 'warn'}
+      />
       <ActivityList />
     </div>
   );
