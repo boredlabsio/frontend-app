@@ -110,6 +110,7 @@ export type TokenSummaryResponse = {
   remaining: string;
   volume24h: string;
   trades24h: number;
+  token_address?: string;
 };
 
 export type RecentTradesResponse = DiscoverySummaryResponse['recentTrades'];
