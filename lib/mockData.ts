@@ -51,27 +51,66 @@ export const summaryMock = {
   latestTokens: [
     {
       token_id: '1',
-      name: 'Mock Token',
-      symbol: 'MOCK',
+      name: 'Pump Live 1777687392334',
+      symbol: 'PLIVE',
       token_address: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
       launchpad_market: '0x9399f30f694D6265fbe097CdeBB851a4Bf1b1eae',
       quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      status: 'curve',
+      priceNative: '0.0000275',
+      change5m: '+0.8%',
+      change1h: '+6.2%',
+      change24h: '+18.4%',
+      volume24h: '62.4'
+    },
+    {
+      token_id: '2',
+      name: 'Mock Migrated',
+      symbol: 'MOCKX',
+      token_address: '0x19610bCa8175522165d9415506D5d59fAe1C6795',
+      launchpad_market: '0x90324CacFf73eC359D62202EEad5Fa721B7a7663',
+      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
+      status: 'migrated',
+      priceNative: '0.00019',
+      change5m: '-0.2%',
+      change1h: '+2.1%',
+      change24h: '+12.0%',
+      volume24h: '88.1'
     }
   ],
   mostActiveTokens: [
     {
       token_id: '1',
-      name: 'Mock Token',
-      symbol: 'MOCK',
+      name: 'Pump Live 1777687392334',
+      symbol: 'PLIVE',
       token_address: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
+      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
       volume24h: '120.4',
-      trades24h: 34
+      trades24h: 34,
+      priceNative: '0.0000275',
+      change24h: '+18.4%',
+      status: 'curve'
+    },
+    {
+      token_id: '2',
+      name: 'Mock Migrated',
+      symbol: 'MOCKX',
+      token_address: '0x19610bCa8175522165d9415506D5d59fAe1C6795',
+      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
+      volume24h: '88.1',
+      trades24h: 22,
+      priceNative: '0.00019',
+      change24h: '+12.0%',
+      status: 'migrated'
     }
   ],
   recentTrades: [
     {
       token_id: '1',
+      token_name: 'Pump Live 1777687392334',
+      token_symbol: 'PLIVE',
       direction: 'buy' as const,
       tx_hash: '0x123',
       block_number: '0',
@@ -80,7 +119,29 @@ export const summaryMock = {
       token_in: null,
       token_out: '100000000000',
       token_address: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
-      execution_price_native: '38976.5'
+      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
+      execution_price_native: '38976.5',
+      execution_price_usd: '0.01',
+      wallet: '0x7bFe4b219b5eC65B0e3c183f78B967245c674673',
+      timestamp: new Date().toISOString()
+    },
+    {
+      token_id: '2',
+      token_name: 'Mock Migrated',
+      token_symbol: 'MOCKX',
+      direction: 'sell' as const,
+      tx_hash: '0x456',
+      block_number: '1',
+      native_in: null,
+      native_out: '25000000000000000',
+      token_in: '250000000000',
+      token_out: null,
+      token_address: '0x19610bCa8175522165d9415506D5d59fAe1C6795',
+      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
+      execution_price_native: '40210.1',
+      execution_price_usd: '0.02',
+      wallet: '0xf25bBA3104470e2001D19f2a3EfE6ece403beb5D',
+      timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString()
     }
   ]
 };

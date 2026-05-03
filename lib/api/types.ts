@@ -74,18 +74,32 @@ export type DiscoverySummaryResponse = {
     name: string;
     symbol: string;
     token_address: string;
+    launchpad_market?: string;
+    quote_token_address?: string;
     createdAt: string;
+    status?: 'curve' | 'migration_pending' | 'migrated';
+    priceNative?: string;
+    change5m?: string;
+    change1h?: string;
+    change24h?: string;
+    volume24h?: string;
   }>;
   mostActiveTokens: Array<{
     token_id: string;
     name: string;
     symbol: string;
     token_address: string;
+    quote_token_address?: string;
     volume24h: string;
     trades24h: number;
+    priceNative?: string;
+    change24h?: string;
+    status?: 'curve' | 'migrated';
   }>;
   recentTrades: Array<{
     token_id: string;
+    token_name?: string;
+    token_symbol?: string;
     direction: 'buy' | 'sell';
     tx_hash: string;
     block_number: string;
@@ -94,7 +108,11 @@ export type DiscoverySummaryResponse = {
     token_in: string | null;
     token_out: string | null;
     token_address: string;
+    quote_token_address?: string;
     execution_price_native: string;
+    execution_price_usd?: string;
+    wallet?: string;
+    timestamp?: string;
   }>;
 };
 

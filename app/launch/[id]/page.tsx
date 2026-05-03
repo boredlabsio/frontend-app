@@ -13,6 +13,7 @@ import { useRecentTrades } from '@/hooks/useRecentTrades';
 import { getBuyQuote, getSellQuote, type QuoteSource } from '@/lib/api/quotes';
 import { bondingCurveMarketAbi } from '@/lib/abi/bondingCurveMarket';
 import { launchConfig } from '@/lib/launchConfig';
+import { shortAddress, shortHash, timeAgo } from '@/lib/formatters';
 
 const REQUIRED_CHAIN_ID = launchConfig.chainId;
 
@@ -31,6 +32,7 @@ type ActivityItem = {
   direction: 'buy' | 'sell';
   amount?: string;
   wallet?: string | null;
+  timestamp?: string;
   source: ActivitySource;
 };
 
@@ -46,7 +48,13 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
       (trades.data ?? []).map((trade) => ({
         txHash: trade.tx_hash,
         direction: trade.direction,
-        amount: trade.native_in || trade.token_out || undefined,
+        amount: trade.native_in
+          ? `${(Number(trade.native_in) / 1e18).toFixed(4)} ETH`
+          : trade.token_out
+            ? `${Number(trade.token_out) / 1e18} TOKEN`
+            : undefined,
+        wallet: trade.wallet,
+        timestamp: trade.timestamp,
         source: 'api'
       })),
     [trades.data]
@@ -65,7 +73,10 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
     source: ActivitySource = 'mock'
   ) {
     const hash = txHash ?? `0x${Math.random().toString(16).slice(2).padEnd(64, '0')}`;
-    setLocalActivity((prev) => [{ txHash: hash, direction, amount, source }, ...prev]);
+    setLocalActivity((prev) => [
+      { txHash: hash, direction, amount, source, timestamp: new Date().toISOString() },
+      ...prev
+    ]);
   }
 
   return (
@@ -94,6 +105,8 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
         <MetricCard label="Volume 24h" value={`${info?.volume24h || '0'} ETH`} />
       </section>
 
+      <ChartPlaceholder price={info?.priceNative} volume={info?.volume24h} />
+
       <TradePanels
         tokenId={params.id}
         wallet={wallet}
@@ -116,10 +129,6 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">Recent activity</h2>
         <TradesList trades={mergedActivity} />
-      </section>
-
-      <section className="rounded-2xl border border-dashed border-white/20 bg-slate-900/40 p-6 text-center text-white/60">
-        Chart coming soon
       </section>
 
       <NextActionHint
@@ -409,10 +418,21 @@ function TradesList({ trades }: { trades: ActivityItem[] }) {
         <div key={trade.txHash} className="flex flex-wrap items-center gap-4 rounded-2xl border border-white/10 bg-slate-900/60 p-3 text-sm text-white">
           <div>
             <p className="font-semibold uppercase tracking-wide">{trade.direction}</p>
-            <p className="text-white/60">Tx {shortHash(trade.txHash)}</p>
+            <p className="text-white/60">{trade.amount || '—'}</p>
           </div>
-          {trade.amount && <p className="text-white/70">Amount {trade.amount}</p>}
-          {trade.source === 'onchain' && <span className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">on-chain</span>}
+          {trade.wallet && <span className="text-xs text-white/60">Trader {shortAddress(trade.wallet)}</span>}
+          {trade.timestamp && <span className="text-xs text-white/50">{timeAgo(trade.timestamp)}</span>}
+          <a
+            href={`https://sepolia.etherscan.io/tx/${trade.txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-white/70 underline-offset-2 hover:underline"
+          >
+            Tx {shortHash(trade.txHash)}
+          </a>
+          {trade.source === 'onchain' && (
+            <span className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">on-chain</span>
+          )}
         </div>
       ))}
     </div>
@@ -447,14 +467,33 @@ function labelForQuote(source: QuoteSource) {
   return 'Quote unavailable';
 }
 
-function shortAddress(value?: string | null) {
-  if (!value) return '—';
-  const address = value.toString();
-  return `${address.slice(0, 8)}…${address.slice(-6)}`;
+function ChartPlaceholder({ price, volume }: { price?: string; volume?: string }) {
+  return (
+    <section className="rounded-3xl border border-white/10 bg-slate-900/60 p-6 shadow-inner">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-white/60">Price action</p>
+          <p className="text-lg font-semibold text-white">Chart coming soon</p>
+        </div>
+        <div className="text-sm text-white/70">
+          <span className="mr-4">Spot {price ? `${price} ETH` : '—'}</span>
+          <span>24h vol {volume ? `${volume} ETH` : '—'}</span>
+        </div>
+      </div>
+      <div className="mt-4 rounded-2xl border border-white/5 bg-gradient-to-br from-indigo-500/10 via-slate-900/80 to-transparent p-4">
+        <svg viewBox="0 0 400 140" className="h-32 w-full text-indigo-400/80">
+          <polyline
+            points="0,100 50,80 90,90 130,50 170,70 210,30 250,60 290,20 330,50 370,35 400,60"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <p className="text-xs text-white/50">Live sparkline coming soon — for now, use the stats above to gauge curve movement.</p>
+      </div>
+    </section>
+  );
 }
 
-function shortHash(value?: string | Hash) {
-  if (!value) return '';
-  const hash = value.toString();
-  return `${hash.slice(0, 10)}…${hash.slice(-6)}`;
-}

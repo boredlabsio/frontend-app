@@ -7,10 +7,11 @@ import SoundToggle from '../wallet/SoundToggle';
 
 const navLinks = [
   { href: '/', label: 'Dashboard' },
+  { href: '/discover', label: 'Discover' },
   { href: '/launch/create', label: 'Launch' },
+  { href: '/activity', label: 'Activity' },
   { href: '/rewards/leaderboard', label: 'Leaderboard' },
   { href: '/rewards/dashboard', label: 'Rewards' },
-  { href: '/rewards/activity', label: 'Activity' },
   { href: '/rewards/claim', label: 'Claim' }
 ];
 
