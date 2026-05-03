@@ -45,7 +45,9 @@ export const leaderboardMock: LeaderboardEntry[] = [
   }
 ];
 
-export const summaryMock = {
+import type { DiscoverySummaryResponse } from '@/lib/api/types';
+
+export const summaryMock: DiscoverySummaryResponse = {
   generatedAt: new Date().toISOString(),
   chain: 'sepolia',
   latestTokens: [
