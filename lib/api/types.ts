@@ -111,6 +111,12 @@ export type TokenSummaryResponse = {
   volume24h: string;
   trades24h: number;
   token_address?: string;
+  marketAddress?: string;
+  tokenAddress?: string;
+  quoteTokenAddress?: string;
+  creatorAddress?: string | null;
+  tokenDecimals?: number;
+  feeBps?: number;
 };
 
 export type RecentTradesResponse = DiscoverySummaryResponse['recentTrades'];

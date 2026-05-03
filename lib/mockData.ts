@@ -54,6 +54,8 @@ export const summaryMock = {
       name: 'Mock Token',
       symbol: 'MOCK',
       token_address: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
+      launchpad_market: '0x9399f30f694D6265fbe097CdeBB851a4Bf1b1eae',
+      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
       createdAt: new Date().toISOString()
     }
   ],
@@ -94,7 +96,12 @@ export const tokenSummaryMock = {
   supply: '1000000',
   remaining: '420000',
   volume24h: '12.5',
-  trades24h: 18
+  trades24h: 18,
+  marketAddress: '0x9399f30f694D6265fbe097CdeBB851a4Bf1b1eae',
+  tokenAddress: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
+  quoteTokenAddress: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
+  tokenDecimals: 18,
+  feeBps: 100
 };
 
 export const tradesMock = summaryMock.recentTrades;

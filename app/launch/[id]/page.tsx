@@ -1,21 +1,37 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
+import type { Hash } from 'viem';
+import { parseEther } from 'viem';
 import NextActionHint from '@/components/common/NextActionHint';
 import { useWallet } from '@/lib/providers/WalletProvider';
 import TestModeGate from '@/components/common/TestModeGate';
 import { useTokenSummary } from '@/hooks/useTokenSummary';
 import { useRecentTrades } from '@/hooks/useRecentTrades';
-import { useEffect, useMemo, useState } from 'react';
 import { getBuyQuote, getSellQuote, type QuoteSource } from '@/lib/api/quotes';
+import { bondingCurveMarketAbi } from '@/lib/abi/bondingCurveMarket';
+import { launchConfig } from '@/lib/launchConfig';
 
-type TradeStatus = 'idle' | 'preparing' | 'wallet' | 'pending' | 'success' | 'error';
+const REQUIRED_CHAIN_ID = launchConfig.chainId;
+
+type TradeStatus =
+  | { state: 'idle' }
+  | { state: 'preparing' }
+  | { state: 'wallet' }
+  | { state: 'pending'; txHash?: Hash }
+  | { state: 'success'; txHash?: Hash }
+  | { state: 'error'; error: string; txHash?: Hash };
+
+type ActivitySource = 'api' | 'mock' | 'onchain';
 
 type ActivityItem = {
-  tx_hash: string;
+  txHash: string;
   direction: 'buy' | 'sell';
-  token_address?: string;
   amount?: string;
+  wallet?: string | null;
+  source: ActivitySource;
 };
 
 export default function LaunchDetail({ params }: { params: { id: string } }) {
@@ -25,12 +41,31 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
   const [localActivity, setLocalActivity] = useState<ActivityItem[]>([]);
 
   const info = summary.data;
-  const baseActivity = useMemo(() => trades.data ?? [], [trades.data]);
-  const mergedActivity = useMemo(() => [...localActivity, ...baseActivity], [localActivity, baseActivity]);
+  const baseActivity = useMemo<ActivityItem[]>(
+    () =>
+      (trades.data ?? []).map((trade) => ({
+        txHash: trade.tx_hash,
+        direction: trade.direction,
+        amount: trade.native_in || trade.token_out || undefined,
+        source: 'api'
+      })),
+    [trades.data]
+  );
+  const mergedActivity = useMemo(
+    () => [...localActivity, ...baseActivity],
+    [localActivity, baseActivity]
+  );
 
-  function appendMockTrade(direction: 'buy' | 'sell', amount: string) {
-    const mockHash = `0x${Math.random().toString(16).slice(2).padEnd(64, '0')}`;
-    setLocalActivity((prev) => [{ tx_hash: mockHash, direction, amount }, ...prev]);
+  const marketAddress = info?.marketAddress || info?.token_address || info?.tokenAddress || null;
+
+  function appendActivity(
+    direction: 'buy' | 'sell',
+    amount: string,
+    txHash?: string,
+    source: ActivitySource = 'mock'
+  ) {
+    const hash = txHash ?? `0x${Math.random().toString(16).slice(2).padEnd(64, '0')}`;
+    setLocalActivity((prev) => [{ txHash: hash, direction, amount, source }, ...prev]);
   }
 
   return (
@@ -43,7 +78,7 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
         <div>
           <p className="text-sm text-white/60">Token #{params.id}</p>
           <h1 className="text-3xl font-semibold text-white">{info?.name || 'Unknown'}</h1>
-          <p className="text-white/70">{info?.symbol || '—'} · {shortAddress(info?.token_address)}</p>
+          <p className="text-white/70">{info?.symbol || '—'} · {shortAddress(info?.tokenAddress || info?.token_address)}</p>
         </div>
         <div className="text-sm text-white/60">
           <p>Chain: Sepolia</p>
@@ -61,15 +96,16 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
 
       <TradePanels
         tokenId={params.id}
-        walletConnected={wallet.connected}
+        wallet={wallet}
+        marketAddress={marketAddress}
+        appendActivity={appendActivity}
         price={info?.priceNative}
-        appendActivity={appendMockTrade}
       />
 
       <section className="space-y-2 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
         <h2 className="text-lg font-semibold text-white">Migration progress</h2>
         <p className="text-sm text-white/70">
-          When the threshold is reached, liquidity migrates to Uniswap and LP is locked at LPForeverLock ({shortAddress(info?.token_address) || 'pending'}).
+          When the threshold is reached, liquidity migrates to Uniswap and LP is locked at LPForeverLock ({shortAddress(info?.tokenAddress || info?.token_address) || 'pending'}).
         </p>
         <div className="mt-2 h-3 w-full rounded-full bg-white/10">
           <div className="h-full rounded-full bg-indigo-400" style={{ width: `${info ? 45 : 10}%` }} />
@@ -87,8 +123,16 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
       </section>
 
       <NextActionHint
-        message={wallet.connected ? (mergedActivity.length ? 'Keep monitoring activity and prep for migration.' : 'Be the first to trade this token once real execution is live.') : 'Connect wallet to interact when trading is enabled.'}
-        tone={wallet.connected ? 'info' : 'warn'}
+        message={
+          wallet.connected
+            ? mergedActivity.length
+              ? 'Keep monitoring activity and prep for migration.'
+              : 'Be the first to trade this token once real execution is live.'
+            : wallet.wrongNetwork
+              ? 'Switch your wallet to Sepolia to interact.'
+              : 'Connect wallet to interact when trading is enabled.'
+        }
+        tone={wallet.connected ? 'info' : wallet.wrongNetwork ? 'warn' : 'warn'}
       />
     </div>
   );
@@ -103,13 +147,43 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TradePanels({ tokenId, walletConnected, price, appendActivity }: { tokenId: string; walletConnected: boolean; price?: string; appendActivity: (direction: 'buy' | 'sell', amount: string) => void }) {
+type TradePanelProps = {
+  tokenId: string;
+  wallet: ReturnType<typeof useWallet>;
+  price?: string;
+  marketAddress?: string | null;
+  appendActivity: (direction: 'buy' | 'sell', amount: string, txHash?: string, source?: ActivitySource) => void;
+};
+
+function TradePanels({ tokenId, wallet, price, marketAddress, appendActivity }: TradePanelProps) {
   const [buyAmount, setBuyAmount] = useState('');
   const [sellAmount, setSellAmount] = useState('');
-  const [buyStatus, setBuyStatus] = useState<TradeStatus>('idle');
-  const [sellStatus, setSellStatus] = useState<TradeStatus>('idle');
+  const [buyStatus, setBuyStatus] = useState<TradeStatus>({ state: 'idle' });
+  const [sellStatus, setSellStatus] = useState<TradeStatus>({ state: 'idle' });
   const [buyQuote, setBuyQuote] = useState<{ amount: string; source: QuoteSource }>({ amount: '0', source: 'unavailable' });
   const [sellQuote, setSellQuote] = useState<{ amount: string; source: QuoteSource }>({ amount: '0', source: 'unavailable' });
+  const [buyTxHash, setBuyTxHash] = useState<Hash | undefined>();
+
+  const publicClient = usePublicClient({ chainId: REQUIRED_CHAIN_ID });
+  const { writeContractAsync } = useWriteContract();
+  const { isSuccess: buyConfirmed, isError: buyFailed } = useWaitForTransactionReceipt({ hash: buyTxHash });
+
+  useEffect(() => {
+    if (buyConfirmed && buyTxHash) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBuyStatus({ state: 'success', txHash: buyTxHash });
+      appendActivity('buy', `${buyAmount || '0'} ETH`, buyTxHash, 'onchain');
+      setBuyAmount('');
+      setBuyTxHash(undefined);
+    }
+  }, [appendActivity, buyAmount, buyConfirmed, buyTxHash]);
+
+  useEffect(() => {
+    if (buyFailed && buyTxHash) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBuyStatus({ state: 'error', error: 'Transaction failed', txHash: buyTxHash });
+    }
+  }, [buyFailed, buyTxHash]);
 
   const numericPrice = Number(price || '0.0001') || 0.0001;
 
@@ -125,99 +199,141 @@ function TradePanels({ tokenId, walletConnected, price, appendActivity }: { toke
 
   useEffect(() => {
     if (!buyAmount) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBuyQuote({ amount: '0', source: 'unavailable' });
       return;
     }
     let cancelled = false;
     (async () => {
       const quote = await getBuyQuote(tokenId, buyAmount);
-      if (cancelled) return;
-      const source: QuoteSource = quote.source === 'live' ? 'live' : 'mock';
-      const amount = source === 'live' ? quote.amount : mockBuyValue;
-      setBuyQuote({ amount, source });
+      if (!cancelled) setBuyQuote(quote);
     })();
     return () => {
       cancelled = true;
     };
-  }, [buyAmount, tokenId, mockBuyValue]);
+  }, [buyAmount, tokenId]);
 
   useEffect(() => {
     if (!sellAmount) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSellQuote({ amount: '0', source: 'unavailable' });
       return;
     }
     let cancelled = false;
     (async () => {
       const quote = await getSellQuote(tokenId, sellAmount);
-      if (cancelled) return;
-      const source: QuoteSource = quote.source === 'live' ? 'live' : 'mock';
-      const amount = source === 'live' ? quote.amount : mockSellValue;
-      setSellQuote({ amount, source });
+      if (!cancelled) setSellQuote(quote);
     })();
     return () => {
       cancelled = true;
     };
-  }, [sellAmount, tokenId, mockSellValue]);
+  }, [sellAmount, tokenId]);
 
-  async function simulateTrade(direction: 'buy' | 'sell') {
-    const hasWallet = walletConnected;
-    const hasInput = direction === 'buy' ? Boolean(buyAmount) : Boolean(sellAmount);
-    if (!hasWallet || !hasInput) return;
+  const handleBuy = async () => {
+    if (!wallet.connected) {
+      setBuyStatus({ state: 'error', error: wallet.wrongNetwork ? 'Switch to Sepolia to trade.' : 'Connect wallet to trade.' });
+      return;
+    }
+    if (!marketAddress) {
+      setBuyStatus({ state: 'error', error: 'Missing market address.' });
+      return;
+    }
 
-    const setStatus = direction === 'buy' ? setBuyStatus : setSellStatus;
-    const amount = direction === 'buy' ? buyAmount : sellAmount;
+    let valueWei: bigint;
+    try {
+      valueWei = parseEther(buyAmount || '0');
+    } catch {
+      setBuyStatus({ state: 'error', error: 'Enter a valid ETH amount.' });
+      return;
+    }
+    if (valueWei <= 0n) {
+      setBuyStatus({ state: 'error', error: 'Amount must be greater than zero.' });
+      return;
+    }
+
+    setBuyStatus({ state: 'preparing' });
+
+    let minTokensOut: bigint | null = null;
+    if (publicClient) {
+      try {
+        const [tokensOut] = await publicClient.readContract({
+          address: marketAddress as `0x${string}`,
+          abi: bondingCurveMarketAbi,
+          functionName: 'quoteBuy',
+          args: [valueWei]
+        });
+        if (tokensOut > 0n) {
+          minTokensOut = (tokensOut * 9700n) / 10000n;
+        }
+      } catch (err) {
+        console.warn('quoteBuy failed', err);
+      }
+    }
+
+    if (!minTokensOut || minTokensOut <= 0n) {
+      setBuyStatus({ state: 'error', error: 'Unable to fetch on-chain quote. Try again.' });
+      return;
+    }
 
     try {
-      setStatus('preparing');
-      await wait(500);
-      setStatus('wallet');
-      await wait(500);
-      setStatus('pending');
-      await wait(800);
-      setStatus('success');
-      appendActivity(direction, amount);
-    } catch (err) {
-      console.error(err);
-      setStatus('error');
-    } finally {
-      await wait(400);
-      setStatus('idle');
-    }
-  }
-
-  const handleBuyInput = (value: string) => {
-    setBuyAmount(value);
-    if (!value) {
-      setBuyQuote({ amount: '0', source: 'unavailable' });
+      setBuyStatus({ state: 'wallet' });
+      const hash = await writeContractAsync({
+        address: marketAddress as `0x${string}`,
+        abi: bondingCurveMarketAbi,
+        functionName: 'buy',
+        args: [minTokensOut, BigInt(Math.floor(Date.now() / 1000) + 600)],
+        value: valueWei,
+        chainId: REQUIRED_CHAIN_ID
+      });
+      setBuyTxHash(hash);
+      setBuyStatus({ state: 'pending', txHash: hash });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Transaction rejected';
+      setBuyStatus({ state: 'error', error: message });
     }
   };
 
-  const handleSellInput = (value: string) => {
-    setSellAmount(value);
-    if (!value) {
-      setSellQuote({ amount: '0', source: 'unavailable' });
+  const handleSell = async () => {
+    if (!wallet.connected) {
+      setSellStatus({ state: 'error', error: wallet.wrongNetwork ? 'Switch to Sepolia to trade.' : 'Connect wallet to trade.' });
+      return;
     }
+    if (!sellAmount) {
+      setSellStatus({ state: 'error', error: 'Enter an amount to sell.' });
+      return;
+    }
+    setSellStatus({ state: 'pending' });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setSellStatus({ state: 'success' });
+    appendActivity('sell', `${sellAmount} TOKEN`);
   };
+
+  const buyQuoteLabel = labelForQuote(buyQuote.source);
+  const sellQuoteLabel = labelForQuote(sellQuote.source);
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <TradePanel
         title="Buy"
         inputValue={buyAmount}
-        setInputValue={handleBuyInput}
-        outputValue={`${buyQuote.amount} TOKEN`}
-        quoteSource={buyQuote.source}
-        walletConnected={walletConnected}
+        setInputValue={setBuyAmount}
+        outputValue={`${buyQuote.amount || mockBuyValue} TOKEN`}
+        quoteLabel={buyQuoteLabel}
+        wallet={wallet}
         status={buyStatus}
-        onSubmit={() => simulateTrade('buy')}
+        onSubmit={handleBuy}
+        actionLabel="Buy"
       />
       <TradePanel
         title="Sell"
         inputValue={sellAmount}
-        setInputValue={handleSellInput}
-        outputValue={`${sellQuote.amount} ETH`}
-        quoteSource={sellQuote.source}
-        walletConnected={walletConnected}
+        setInputValue={setSellAmount}
+        outputValue={`${sellQuote.amount || mockSellValue} ETH`}
+        quoteLabel={sellQuoteLabel}
+        wallet={wallet}
         status={sellStatus}
-        onSubmit={() => simulateTrade('sell')}
+        onSubmit={handleSell}
+        actionLabel="Sell"
       />
     </div>
   );
@@ -228,29 +344,32 @@ function TradePanel({
   inputValue,
   setInputValue,
   outputValue,
-  quoteSource,
-  walletConnected,
+  quoteLabel,
+  wallet,
   status,
-  onSubmit
+  onSubmit,
+  actionLabel
 }: {
   title: 'Buy' | 'Sell';
   inputValue: string;
   setInputValue: (value: string) => void;
   outputValue: string;
-  quoteSource: QuoteSource;
-  walletConnected: boolean;
+  quoteLabel: string;
+  wallet: ReturnType<typeof useWallet>;
   status: TradeStatus;
   onSubmit: () => void;
+  actionLabel: string;
 }) {
-  const disabled = !walletConnected || !inputValue || status === 'pending' || status === 'wallet';
-  const statusMessage = getStatusMessage(status, walletConnected, Boolean(inputValue));
-  const quoteLabel = quoteSource === 'live' ? 'Live quote' : quoteSource === 'mock' ? 'Mock quote' : 'Quote unavailable';
+  const disabled =
+    !wallet.connected || wallet.wrongNetwork || !inputValue || status.state === 'pending' || status.state === 'wallet';
+  const statusMessage = getStatusMessage(status, wallet, Boolean(inputValue));
 
   return (
     <div className="space-y-3 rounded-3xl border border-white/10 bg-slate-900/60 p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white">{title}</h3>
-        {!walletConnected && <span className="text-xs text-amber-300">Connect wallet to trade</span>}
+        {!wallet.connected && <span className="text-xs text-amber-300">Connect wallet to trade</span>}
+        {wallet.wrongNetwork && <span className="text-xs text-amber-300">Switch to Sepolia</span>}
       </div>
       <div>
         <label className="text-sm text-white/60">Amount ({title === 'Buy' ? 'ETH' : 'TOKEN'})</label>
@@ -273,9 +392,9 @@ function TradePanel({
         disabled={disabled}
         className="w-full rounded-full bg-white/90 px-4 py-2 font-semibold text-slate-900 disabled:cursor-not-allowed disabled:bg-white/40"
       >
-        {status === 'pending' ? `${title} pending…` : title}
+        {status.state === 'pending' ? `${actionLabel} pending…` : actionLabel}
       </button>
-      <NextActionHint message={statusMessage} tone={status === 'error' ? 'error' : status === 'success' ? 'success' : 'info'} />
+      <NextActionHint message={statusMessage} tone={status.state === 'error' ? 'error' : status.state === 'success' ? 'success' : 'info'} />
     </div>
   );
 }
@@ -287,50 +406,55 @@ function TradesList({ trades }: { trades: ActivityItem[] }) {
   return (
     <div className="space-y-2">
       {trades.map((trade) => (
-        <div key={trade.tx_hash} className="flex items-center justify-between rounded-2xl border border-white/10 bg-slate-900/60 p-3 text-sm text-white">
+        <div key={trade.txHash} className="flex flex-wrap items-center gap-4 rounded-2xl border border-white/10 bg-slate-900/60 p-3 text-sm text-white">
           <div>
-            <p className="font-semibold">{trade.direction.toUpperCase()}</p>
-            <p className="text-white/60">Tx {shortHash(trade.tx_hash)}</p>
+            <p className="font-semibold uppercase tracking-wide">{trade.direction}</p>
+            <p className="text-white/60">Tx {shortHash(trade.txHash)}</p>
           </div>
-          <p className="text-white/70">Amount {trade.amount || '—'}</p>
+          {trade.amount && <p className="text-white/70">Amount {trade.amount}</p>}
+          {trade.source === 'onchain' && <span className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">on-chain</span>}
         </div>
       ))}
     </div>
   );
 }
 
-function getStatusMessage(status: TradeStatus, walletConnected: boolean, hasInput: boolean) {
-  if (!walletConnected) return 'Connect wallet to trade';
+function getStatusMessage(status: TradeStatus, wallet: ReturnType<typeof useWallet>, hasInput: boolean) {
+  if (!wallet.connected) return wallet.wrongNetwork ? 'Switch to Sepolia to trade.' : 'Connect wallet to trade.';
   if (!hasInput) return 'Enter an amount to preview a quote';
 
-  switch (status) {
+  switch (status.state) {
     case 'idle':
       return 'Ready to simulate trade. Execution wiring is pending.';
     case 'preparing':
       return 'Preparing quote…';
     case 'wallet':
-      return 'Waiting for wallet confirmation (mock).';
+      return 'Confirm the transaction in your wallet.';
     case 'pending':
-      return 'Transaction pending…';
+      return status.txHash ? `Transaction pending: ${shortHash(status.txHash)}` : 'Transaction pending…';
     case 'success':
-      return 'Trade complete → check activity below.';
+      return status.txHash ? `Trade complete: ${shortHash(status.txHash)}` : 'Trade complete → check activity below.';
     case 'error':
-      return 'Transaction failed → try again.';
+      return status.error;
     default:
       return '';
   }
 }
 
-function shortAddress(address?: string) {
-  if (!address) return '—';
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+function labelForQuote(source: QuoteSource) {
+  if (source === 'live') return 'Live quote';
+  if (source === 'mock') return 'Mock quote';
+  return 'Quote unavailable';
 }
 
-function shortHash(hash?: string) {
-  if (!hash) return '';
-  return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
+function shortAddress(value?: string | null) {
+  if (!value) return '—';
+  const address = value.toString();
+  return `${address.slice(0, 8)}…${address.slice(-6)}`;
 }
 
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function shortHash(value?: string | Hash) {
+  if (!value) return '';
+  const hash = value.toString();
+  return `${hash.slice(0, 10)}…${hash.slice(-6)}`;
 }
