@@ -81,9 +81,9 @@ function normalizeToken(token: SnapshotToken): DiscoverySummaryResponse['latestT
     symbol: token.symbol ?? 'TKN',
     token_address: token.token_address ?? token.tokenAddress ?? token.launchToken ?? token.address ?? '',
     launchpad_market: token.launchpad_market ?? token.market ?? token.marketAddress,
-    quote_token_address: token.quote_token_address ?? token.quoteToken ?? token.quote_token ?? null,
+    quote_token_address: token.quote_token_address ?? token.quoteToken ?? token.quote_token ?? undefined,
     createdAt: token.createdAt ?? token.first_seen_at ?? new Date().toISOString(),
-    status: token.status ?? token.market_state ?? undefined,
+    status: (token.status ?? token.market_state) as DiscoverySummaryResponse['latestTokens'][number]['status'],
     priceNative: token.priceNative ?? token.first_trade_price_native ?? undefined,
     change5m: token.change5m ?? undefined,
     change1h: token.change1h ?? undefined,
@@ -95,8 +95,8 @@ function normalizeToken(token: SnapshotToken): DiscoverySummaryResponse['latestT
 function normalizeTrade(trade: SnapshotTrade): RecentTradesResponse[number] {
   return {
     token_id: normalizeId(trade.token_id ?? trade.tokenId),
-    token_name: trade.token_name ?? trade.token_name ?? trade.name ?? undefined,
-    token_symbol: trade.token_symbol ?? trade.symbol ?? undefined,
+    token_name: (trade as { token_name?: string; name?: string }).token_name ?? (trade as { name?: string }).name ?? undefined,
+    token_symbol: (trade as { token_symbol?: string; symbol?: string }).token_symbol ?? (trade as { symbol?: string }).symbol ?? undefined,
     direction: (trade.direction ?? 'buy').toLowerCase() === 'sell' ? 'sell' : 'buy',
     tx_hash: trade.tx_hash ?? trade.txHash ?? '',
     block_number: normalizeId(trade.block_number ?? trade.blockNumber ?? '0'),
@@ -106,8 +106,8 @@ function normalizeTrade(trade: SnapshotTrade): RecentTradesResponse[number] {
     token_out: trade.token_out ?? null,
     token_address: trade.token_address ?? '',
     quote_token_address: trade.quote_token_address ?? undefined,
-    execution_price_native: trade.execution_price_native ?? undefined,
-    execution_price_usd: trade.execution_price_usd ?? undefined,
+    execution_price_native: trade.execution_price_native ?? '0',
+    execution_price_usd: trade.execution_price_usd ?? '0',
     wallet: trade.wallet ?? undefined,
     timestamp: trade.timestamp ?? trade.first_trade_time ?? undefined
   };
@@ -130,9 +130,7 @@ function buildTokenSummaryFromSnapshot(tokenId: string, snapshot: DiscoverySumma
     trades24h: 0,
     marketAddress: token.launchpad_market ?? undefined,
     tokenAddress: token.token_address,
-    token_address: token.token_address,
     quoteTokenAddress: token.quote_token_address ?? undefined,
-    quote_token_address: token.quote_token_address ?? undefined,
     tokenDecimals: 18,
     feeBps: 0
   };
@@ -149,13 +147,16 @@ export async function fetchDiscoverySnapshot(): Promise<DiscoverySummaryResponse
     const latestTokens = Array.isArray(raw.latestTokens) ? raw.latestTokens.map(normalizeToken) : [];
     const mostActiveTokens = Array.isArray(raw.mostActiveTokens)
       ? raw.mostActiveTokens.map((token: SnapshotToken) => {
-          const normalized = normalizeToken(token);
+          const normalized = normalizeToken(token) as typeof latestTokens[number] & { trades24h?: number };
           if (!normalized.volume24h && typeof token.trade_count === 'number') {
             normalized.volume24h = token.trade_count.toString();
           }
+          if (normalized.trades24h === undefined) {
+            normalized.trades24h = typeof token.trade_count === 'number' ? token.trade_count : 0;
+          }
           return normalized;
         })
-      : latestTokens;
+      : latestTokens.map((token) => ({ ...(token as typeof latestTokens[number]), trades24h: (token as { trades24h?: number }).trades24h ?? 0 }));
     const snapshot: DiscoverySummaryResponse = {
       generatedAt: raw.generatedAt ?? new Date().toISOString(),
       chain: raw.chain ?? 'unknown',
@@ -171,6 +172,8 @@ export async function fetchDiscoverySnapshot(): Promise<DiscoverySummaryResponse
     return null;
   }
 }
+
+type BaseTradeField = string | null | undefined;
 
 export async function getTokenSummaryFromSnapshot(tokenId: string): Promise<TokenSummaryResponse> {
   if (!cachedSnapshot) {

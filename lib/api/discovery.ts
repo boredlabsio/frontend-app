@@ -5,7 +5,7 @@ import { fetchDiscoverySnapshot, getTokenSummaryFromSnapshot, getRecentTradesFro
 
 function withSource<T>(value: T, source: DataSource): T & { __source: DataSource } {
   if (Array.isArray(value)) {
-    return Object.assign([...value], { __source: source }) as T & { __source: DataSource };
+    return Object.assign([...value], { __source: source }) as unknown as T & { __source: DataSource };
   }
   return { ...(value as Record<string, unknown>), __source: source } as T & { __source: DataSource };
 }

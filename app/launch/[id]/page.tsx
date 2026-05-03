@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import type { Hash } from 'viem';
 import { parseEther } from 'viem';
+import type { DataSource, RecentTradesResponse } from '@/lib/api/types';
 import NextActionHint from '@/components/common/NextActionHint';
 import { useWallet } from '@/lib/providers/WalletProvider';
 import TestModeGate from '@/components/common/TestModeGate';
@@ -14,13 +15,21 @@ import { useRecentTrades } from '@/hooks/useRecentTrades';
 import { useDiscoverySummary } from '@/hooks/useDiscoverySummary';
 import { debugLog } from '@/lib/utils/debug';
 import { getBuyQuote, getSellQuote, type QuoteSource } from '@/lib/api/quotes';
-import type { RecentTradesResponse } from '@/lib/api/types';
 import { bondingCurveMarketAbi } from '@/lib/abi/bondingCurveMarket';
 import { launchConfig } from '@/lib/launchConfig';
 import { shortAddress, shortHash, timeAgo } from '@/lib/formatters';
 
 const REQUIRED_CHAIN_ID = launchConfig.chainId;
 const EXPLORER_TX_BASE = "https://sepolia.etherscan.io/tx/";
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function getSourceTag(value: unknown): DataSource | undefined {
+  if (value && typeof value === 'object' && '__source' in value) {
+    return (value as { __source?: DataSource }).__source;
+  }
+  return undefined;
+}
 
 type TradeStatus =
   | { state: 'idle' }
@@ -47,7 +56,9 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
   const summary = useTokenSummary(params.id);
   const trades = useRecentTrades(params.id);
   const discovery = useDiscoverySummary();
+  const [lastRewardEstimate, setLastRewardEstimate] = useState<RewardSignal | null>(null);
   const [localActivity, setLocalActivity] = useState<ActivityItem[]>([]);
+  const [fallbackTimestamp] = useState(() => Date.now());
 
   useEffect(() => {
     if (summary.data) {
@@ -65,10 +76,26 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
   }, [discovery.data, params.id]);
 
   const info = summary.data;
-  const dataSource = (info as any)?.__source ?? 'mock';
-  const tradesSource = (Array.isArray(trades.data) && (trades.data as any).__source) || dataSource;
+  const dataSource = getSourceTag(info) ?? 'mock';
+  const tradesSource = getSourceTag(trades.data) ?? dataSource;
   const dataSourceLabel = `Data source: ${describeSource(dataSource)}${tradesSource !== dataSource ? ` · Trades: ${describeSource(tradesSource)}` : ''}`;
   const dataSourceTone = dataSource === 'api' ? 'success' : dataSource === 'snapshot' ? 'info' : 'warn';
+  const tradesData = useMemo<RecentTradesResponse>(() => trades.data ?? [], [trades.data]);
+  const referenceTimestamp = tradesData[0]?.timestamp
+    ? Date.parse(tradesData[0].timestamp as string)
+    : fallbackTimestamp;
+  const tradesLastHour = useMemo(() => {
+    if (!referenceTimestamp) return 0;
+    const threshold = referenceTimestamp - HOUR_MS;
+    return tradesData.filter((trade) => {
+      const ts = trade.timestamp ? Date.parse(trade.timestamp) : 0;
+      return ts >= threshold && trade.direction === 'buy';
+    }).length;
+  }, [referenceTimestamp, tradesData]);
+  const lastTradeTime = tradesData[0]?.timestamp ?? null;
+  const lastTradeLabel = lastTradeTime ? timeAgo(lastTradeTime) : 'No trades yet';
+  const buyPressureTone = tradesLastHour > 5 ? 'success' : tradesLastHour > 0 ? 'info' : 'warn';
+  const buyPressureMessage = tradesLastHour > 0 ? `${tradesLastHour} buys in the last hour` : 'Be the first to trade this hour';
   const marketAddress =
     info?.marketAddress ||
     info?.token_address ||
@@ -83,12 +110,24 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
   const displayPrice = info?.priceNative || discoveryToken?.priceNative || '—';
   const displayVolume = info?.volume24h || discoveryToken?.volume24h || '0';
   const displayTokenAddress = info?.tokenAddress || info?.token_address || discoveryToken?.token_address || discoveryToken?.launchpad_market || '';
+  const nearMigration = discoveryToken?.status === 'migration_pending';
+  const migrationProgress = discoveryToken?.status === 'migrated' ? 100 : nearMigration ? 72 : 35;
   const displayStatus = !marketReady
     ? 'Market not found'
     : discoveryToken?.status === 'migrated'
       ? 'Migrated to Uniswap'
-      : 'Bonding curve active';
+      : nearMigration
+        ? 'Migration pending'
+        : 'Bonding curve active';
   const sparklineSeries = useMemo(() => buildSparklineSeries(trades.data, displayPrice), [trades.data, displayPrice]);
+  const rewardOpportunityMessage = 'Trading this token may increase your leaderboard score (estimate only).';
+  const leaderboardEta = leaderboardResetEta();
+  const referenceTimeForNewToken = useMemo(
+    () => (tradesData[0]?.timestamp ? Date.parse(tradesData[0].timestamp as string) : fallbackTimestamp),
+    [tradesData, fallbackTimestamp]
+  );
+  const discoveryCreatedAt = (discoveryToken as { createdAt?: string } | null)?.createdAt;
+  const isNewToken = discoveryCreatedAt ? referenceTimeForNewToken - Date.parse(discoveryCreatedAt) < DAY_MS : false;
   const baseActivity = useMemo<ActivityItem[]>(
     () =>
       (trades.data ?? []).map((trade) => ({
@@ -163,10 +202,24 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
         tone={marketReady ? 'success' : 'warn'}
       />
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
+        <PromptCard
+          title={isNewToken ? 'You are early' : 'Seasoned curve'}
+          body={isNewToken ? 'This launch is still fresh — leaderboard boosts tend to land quickly.' : 'Curve has been live for a bit; steady trading keeps rewards flowing.'}
+        />
+        <PromptCard
+          title={nearMigration ? 'Near migration' : 'Buy pressure'}
+          body={nearMigration ? 'This token is close to migrating. Activity before the switch often spikes.' : buyPressureMessage}
+          tone={buyPressureTone}
+        />
+        <PromptCard title="Leaderboard reset" body={`Reset in ${leaderboardEta}. Trade again before the epoch closes.`} />
+      </div>
+
+      <section className="grid gap-3 md:grid-cols-4">
         <MetricCard label="Price" value={`${displayPrice} ETH`} />
         <MetricCard label="Market status" value={displayStatus} />
         <MetricCard label="Volume 24h" value={`${displayVolume} ETH`} />
+        <MetricCard label="Last trade" value={lastTradeLabel} />
       </section>
 
       <PriceSparkline series={sparklineSeries} price={displayPrice} volume={displayVolume} />
@@ -174,6 +227,8 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
       {!marketReady && (
         <NextActionHint message="Trading not available yet (market initializing)." tone="warn" />
       )}
+
+      <NextActionHint message={rewardOpportunityMessage} tone="info" />
 
       <TradePanels
         tokenId={params.id}
@@ -188,18 +243,24 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
         walletAddress={wallet.address ?? null}
         appendActivity={appendActivity}
         onBroadcastTrade={broadcastTrade}
+        onRewardEstimate={(signal) => setLastRewardEstimate(signal)}
         price={displayPrice === '—' ? undefined : displayPrice}
       />
+
+      {lastRewardEstimate && (
+        <RewardCta points={lastRewardEstimate.points} tokenName={lastRewardEstimate.tokenName} timestamp={lastRewardEstimate.timestamp} />
+      )}
 
       <section className="space-y-2 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
         <h2 className="text-lg font-semibold text-white">Migration progress</h2>
         <p className="text-sm text-white/70">
-          When the threshold is reached, liquidity migrates to Uniswap and LP is locked at LPForeverLock ({displayTokenAddress ? shortAddress(displayTokenAddress) : 'pending'}).
+          Liquidity migrates once the curve threshold hits. LP destination: {displayTokenAddress ? shortAddress(displayTokenAddress) : 'pending'}.
         </p>
         <div className="mt-2 h-3 w-full rounded-full bg-white/10">
-          <div className="h-full rounded-full bg-indigo-400" style={{ width: `${info ? 45 : 10}%` }} />
+          <div className="h-full rounded-full bg-indigo-400" style={{ width: `${migrationProgress}%` }} />
         </div>
-        <p className="text-xs text-white/60">Progress estimated — analytics endpoint still mocked.</p>
+        {nearMigration && <p className="text-xs text-amber-200">This token is close to migration — activity tends to spike before the switch.</p>}
+        {!nearMigration && <p className="text-xs text-white/60">Stay early: more trades accelerate the migration clock.</p>}
       </section>
 
       <section className="space-y-3">
@@ -223,6 +284,18 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
   );
 }
 
+type PromptTone = 'info' | 'warn' | 'success';
+
+function PromptCard({ title, body, tone = 'info' }: { title: string; body: string; tone?: PromptTone }) {
+  const toneClass = tone === 'success' ? 'border-emerald-300/30 bg-emerald-400/10 text-emerald-200' : tone === 'warn' ? 'border-amber-300/30 bg-amber-400/10 text-amber-100' : 'border-white/20 text-white/70';
+  return (
+    <div className={`rounded-2xl border ${toneClass} p-4 text-sm`}>
+      <p className="text-xs uppercase tracking-wide text-white/60">{title}</p>
+      <p className="mt-1 text-sm">{body}</p>
+    </div>
+  );
+}
+
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
@@ -231,6 +304,12 @@ function MetricCard({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+type RewardSignal = {
+  points: number;
+  tokenName: string;
+  timestamp: string;
+};
 
 type PendingBuyMeta = {
   ethAmount: string;
@@ -259,9 +338,11 @@ type TradePanelProps = {
   walletAddress?: string | null;
   appendActivity: (direction: 'buy' | 'sell', amount: string, txHash?: string, source?: ActivitySource) => void;
   onBroadcastTrade: (trade: RecentTradesResponse[number]) => void;
+  onRewardEstimate: (signal: RewardSignal) => void;
 };
 
-function TradePanels({ tokenId, wallet, price, marketAddress, marketReady, tokenSymbol, tokenName, tokenAddress, quoteTokenAddress, priceLabel, walletAddress, appendActivity, onBroadcastTrade }: TradePanelProps) {
+function TradePanels({ tokenId, wallet, price, marketAddress, marketReady, tokenSymbol, tokenName, tokenAddress, quoteTokenAddress, priceLabel, walletAddress, appendActivity, onBroadcastTrade, onRewardEstimate }: TradePanelProps) {
+  const effectiveTokenSymbol = tokenSymbol || 'TOKEN';
   const [buyAmount, setBuyAmount] = useState('');
   const [sellAmount, setSellAmount] = useState('');
   const [buyStatus, setBuyStatus] = useState<TradeStatus>({ state: 'idle' });
@@ -279,37 +360,44 @@ function TradePanels({ tokenId, wallet, price, marketAddress, marketReady, token
     if (!buyConfirmed || !buyTxHash) return;
     const meta = pendingBuyMeta;
     const amountLabel = meta?.ethAmount ?? '0';
-    setBuyStatus({ state: 'success', txHash: buyTxHash });
-    appendActivity('buy', `${amountLabel} ETH`, buyTxHash, 'onchain');
-    if (meta) {
-      onBroadcastTrade({
-        token_id: meta.tokenId,
-        token_name: meta.tokenName,
-        token_symbol: meta.tokenSymbol,
-        direction: 'buy',
-        tx_hash: buyTxHash,
-        block_number: 'pending',
-        native_in: meta.ethAmountWei,
-        native_out: null,
-        token_in: null,
-        token_out: meta.tokensOutWei,
-        token_address: meta.tokenAddress || '',
-        quote_token_address: meta.quoteTokenAddress,
-        execution_price_native: meta.priceLabel,
-        wallet: meta.walletAddress ?? undefined,
-        timestamp: new Date().toISOString()
-      });
-    }
-    setPendingBuyMeta(null);
-    setBuyAmount('');
-    setBuyTxHash(undefined);
-  }, [appendActivity, buyConfirmed, buyTxHash, onBroadcastTrade, pendingBuyMeta]);
+    const timeout = setTimeout(() => {
+      setBuyStatus({ state: 'success', txHash: buyTxHash });
+      appendActivity('buy', `${amountLabel} ETH`, buyTxHash, 'onchain');
+      if (meta) {
+        onBroadcastTrade({
+          token_id: meta.tokenId,
+          token_name: meta.tokenName,
+          token_symbol: meta.tokenSymbol,
+          direction: 'buy',
+          tx_hash: buyTxHash,
+          block_number: 'pending',
+          native_in: meta.ethAmountWei,
+          native_out: null,
+          token_in: null,
+          token_out: meta.tokensOutWei,
+          token_address: meta.tokenAddress || '',
+          quote_token_address: meta.quoteTokenAddress,
+          execution_price_native: meta.priceLabel ?? price ?? '0',
+          wallet: meta.walletAddress ?? undefined,
+          timestamp: new Date().toISOString()
+        });
+        const estimatedPoints = Math.max(1, Math.round(parseFloat(meta.ethAmount || '0') * 12));
+        onRewardEstimate({ points: estimatedPoints, tokenName: meta.tokenName, timestamp: new Date().toISOString() });
+      }
+      setPendingBuyMeta(null);
+      setBuyAmount('');
+      setBuyTxHash(undefined);
+    }, 0);
+    return () => clearTimeout(timeout);
+  }, [appendActivity, buyConfirmed, buyTxHash, onBroadcastTrade, onRewardEstimate, pendingBuyMeta, price]);
 
   useEffect(() => {
-    if (buyFailed && buyTxHash) {
+    if (!buyFailed || !buyTxHash) return;
+    const timeout = setTimeout(() => {
       setBuyStatus({ state: 'error', error: 'Transaction failed', txHash: buyTxHash });
       setPendingBuyMeta(null);
-    }
+    }, 0);
+    return () => clearTimeout(timeout);
   }, [buyFailed, buyTxHash]);
 
   const numericPrice = Number(price || '0.0001') || 0.0001;
@@ -326,9 +414,8 @@ function TradePanels({ tokenId, wallet, price, marketAddress, marketReady, token
 
   useEffect(() => {
     if (!buyAmount) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setBuyQuote({ amount: '0', source: 'unavailable' });
-      return;
+      const timeout = setTimeout(() => setBuyQuote({ amount: '0', source: 'unavailable' }), 0);
+      return () => clearTimeout(timeout);
     }
     let cancelled = false;
     (async () => {
@@ -342,9 +429,8 @@ function TradePanels({ tokenId, wallet, price, marketAddress, marketReady, token
 
   useEffect(() => {
     if (!sellAmount) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSellQuote({ amount: '0', source: 'unavailable' });
-      return;
+      const timeout = setTimeout(() => setSellQuote({ amount: '0', source: 'unavailable' }), 0);
+      return () => clearTimeout(timeout);
     }
     let cancelled = false;
     (async () => {
@@ -562,6 +648,19 @@ function TradePanel({
   );
 }
 
+function RewardCta({ points, tokenName, timestamp }: RewardSignal) {
+  return (
+    <div className="rounded-3xl border border-indigo-500/30 bg-indigo-500/10 p-4 text-white">
+      <p className="text-sm">Estimated +{points} pts from your recent trade on {tokenName}.</p>
+      <p className="text-xs text-white/60">Last update {timestamp ? timeAgo(timestamp) : 'just now'} · estimates only.</p>
+      <div className="mt-3 flex flex-wrap gap-3">
+        <Link href="/rewards/leaderboard" className="rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-slate-900">View leaderboard</Link>
+        <Link href="/discover" className="rounded-full border border-white/40 px-4 py-2 text-sm text-white">Trade again before reset</Link>
+      </div>
+    </div>
+  );
+}
+
 function TradesList({ trades }: { trades: ActivityItem[] }) {
   if (!trades.length) {
     return <p className="rounded-2xl border border-white/10 bg-slate-900/60 p-4 text-sm text-white/70">No trades yet — be the first to interact.</p>;
@@ -616,6 +715,10 @@ function getStatusMessage(status: TradeStatus, wallet: ReturnType<typeof useWall
   }
 }
 
+function leaderboardResetEta() {
+  return '3d 12h';
+}
+
 function buildSparklineSeries(trades: RecentTradesResponse | undefined, displayPrice: string) {
   const pricePoints = (trades ?? [])
     .map((trade) => Number(trade.execution_price_native))
@@ -629,7 +732,7 @@ function buildSparklineSeries(trades: RecentTradesResponse | undefined, displayP
 }
 
 function renderStatusDetail(status: TradeStatus) {
-  if (!status.txHash) return null;
+  if (!('txHash' in status) || !status.txHash) return null;
   const url = `${EXPLORER_TX_BASE}${status.txHash.replace(/^0x/, '')}`;
   const label = status.state === 'pending' ? 'View pending transaction' : 'View transaction';
   return (

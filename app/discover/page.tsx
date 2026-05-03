@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import NextActionHint from '@/components/common/NextActionHint';
 import { debugLog } from '@/lib/utils/debug';
@@ -9,14 +9,29 @@ import TestModeGate from '@/components/common/TestModeGate';
 import { useDiscoverySummary } from '@/hooks/useDiscoverySummary';
 import { useRecentTrades } from '@/hooks/useRecentTrades';
 import { shortAddress, shortHash, timeAgo } from '@/lib/formatters';
-import type { DiscoverySummaryResponse, RecentTradesResponse } from '@/lib/api/types';
+import type { DataSource, DiscoverySummaryResponse, RecentTradesResponse } from '@/lib/api/types';
 
 const RECENT_ACTIVITY_WINDOW_MS = 5 * 60 * 1000;
+const NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function getSourceTag(value: unknown): DataSource | undefined {
+  if (value && typeof value === 'object' && '__source' in value) {
+    return (value as { __source?: DataSource }).__source;
+  }
+  return undefined;
+}
 
 type BaseToken = DiscoverySummaryResponse['latestTokens'][number];
 
+type EnrichedToken = BaseToken & { trades24h?: number };
+
 type TokenCard = BaseToken & {
   justTraded?: boolean;
+  isHot?: boolean;
+  isNew?: boolean;
+  isMoving?: boolean;
+  nearMigration?: boolean;
+  volumeSpike?: boolean;
   volumeValue: number;
   change5mValue: number;
   change1hValue: number;
@@ -28,10 +43,14 @@ type TokenCard = BaseToken & {
 export default function DiscoverPage() {
   const summary = useDiscoverySummary();
   const trades = useRecentTrades();
+  const [filter, setFilter] = useState<'all' | 'hot' | 'moving' | 'migrated'>('hot');
 
-  const latestTokens = summary.data?.latestTokens ?? [];
-  const mostActiveRaw = summary.data?.mostActiveTokens ?? [];
-  const recentTradeList: RecentTradesResponse = trades.data ?? [];
+  const summarySource = getSourceTag(summary.data) ?? 'mock';
+  const tradesSource = getSourceTag(trades.data) ?? summarySource;
+
+  const latestTokens = useMemo(() => summary.data?.latestTokens ?? [], [summary.data]);
+  const mostActiveRaw = useMemo(() => summary.data?.mostActiveTokens ?? [], [summary.data]);
+  const recentTradeList = useMemo<RecentTradesResponse>(() => trades.data ?? [], [trades.data]);
 
   const recentTradeMap = useMemo(() => buildRecentTradeMap(recentTradeList), [recentTradeList]);
 
@@ -42,10 +61,19 @@ export default function DiscoverPage() {
 
   const latestById = useMemo(() => new Map(enhancedLatest.map((token) => [token.token_id, token])), [enhancedLatest]);
 
-  const trendingTokens = useMemo(
-    () => [...enhancedLatest].sort(trendingSort).slice(0, 6),
-    [enhancedLatest]
-  );
+  const trendingTokens = useMemo(() => {
+    const base = [...enhancedLatest].sort(trendingSort);
+    switch (filter) {
+      case 'hot':
+        return base.filter((token) => token.isHot).slice(0, 6);
+      case 'moving':
+        return base.filter((token) => token.isMoving).slice(0, 6);
+      case 'migrated':
+        return base.filter((token) => token.status === 'migrated').slice(0, 6);
+      default:
+        return base.slice(0, 6);
+    }
+  }, [enhancedLatest, filter]);
 
   const newLaunches = useMemo(
     () => [...enhancedLatest].sort((a, b) => b.createdAtValue - a.createdAtValue).slice(0, 6),
@@ -55,7 +83,11 @@ export default function DiscoverPage() {
   const mostActiveTokens = useMemo(
     () =>
       mostActiveRaw
-        .map((token) => latestById.get(token.token_id) ?? enrichToken(token, recentTradeMap))
+        .map((token) => {
+          if (latestById.has(token.token_id)) return latestById.get(token.token_id)!;
+          const createdAt = (token as { createdAt?: string }).createdAt ?? '1970-01-01T00:00:00Z';
+          return enrichToken({ ...(token as EnrichedToken), createdAt }, recentTradeMap);
+        })
         .slice(0, 6),
     [mostActiveRaw, latestById, recentTradeMap]
   );
@@ -72,8 +104,6 @@ export default function DiscoverPage() {
   const recentlyTraded = useMemo<RecentTradesResponse>(() => recentTradeList.slice(0, 6), [recentTradeList]);
 
   const loading = summary.isLoading && trades.isLoading;
-  const summarySource = (summary.data as any)?.__source ?? 'mock';
-  const tradesSource = (Array.isArray(trades.data) && (trades.data as any)?.__source) || summarySource;
   const dataSourceMessage = `Data source: ${describeSource(summarySource)}${
     tradesSource !== summarySource ? ` · Trades: ${describeSource(tradesSource)}` : ''
   }`;
@@ -82,9 +112,19 @@ export default function DiscoverPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-3">
-        <p className="text-sm text-white/60">Live Sepolia feed</p>
-        <h1 className="text-3xl font-semibold text-white">Discover tokens</h1>
-        <NextActionHint message="Track trending launches, check curve status, and jump into trading." />
+        <p className="text-xs uppercase tracking-[0.2em] text-white/60">Live Sepolia feed</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-semibold text-white">Discover tokens</h1>
+            <NextActionHint message="Track trending launches, chase rewards, and jump into trading." />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
+            <FilterButton label="Hot" active={filter === 'hot'} onClick={() => setFilter('hot')} />
+            <FilterButton label="Moving" active={filter === 'moving'} onClick={() => setFilter('moving')} />
+            <FilterButton label="Migrated" active={filter === 'migrated'} onClick={() => setFilter('migrated')} />
+            <FilterButton label="All" active={filter === 'all'} onClick={() => setFilter('all')} />
+          </div>
+        </div>
         <NextActionHint message={dataSourceMessage} tone={dataSourceTone} />
         <TestModeGate>
           <p className="text-xs text-white/60">
@@ -127,6 +167,18 @@ export default function DiscoverPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function FilterButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      
+      onClick={onClick}
+      className={`rounded-full border px-3 py-1 transition ${active ? 'border-white bg-white/20 text-white' : 'border-white/20 text-white/60 hover:border-white/50'}`}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -173,13 +225,20 @@ function TokenGrid({ tokens, emptyLabel }: { tokens: TokenCard[]; emptyLabel: st
                 </p>
               </div>
             </div>
-            {token.justTraded && <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200 animate-pulse">Just traded</span>}
+            <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-wide">
+              {getTokenLabels(token).map((label) => (
+                <span key={label} className="rounded-full border border-white/20 px-2 py-0.5 text-white/70">
+                  {label}
+                </span>
+              ))}
+              {token.justTraded && <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-200 animate-pulse">Just traded</span>}
+            </div>
           </div>
 
           <div className="mt-4 grid gap-3 text-sm text-white">
             <Metric label="Price" value={token.priceNative ? `${token.priceNative} ETH` : '—'} />
             <Metric label="Volume (24h)" value={token.volume24h ? `${token.volume24h} ETH` : '—'} />
-            <Metric label="Trades (24h)" value={token.trades24h?.toString() ?? '—'} />
+            <Metric label="Trades (24h)" value={token.tradeCount.toString()} />
           </div>
 
           <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
@@ -191,6 +250,7 @@ function TokenGrid({ tokens, emptyLabel }: { tokens: TokenCard[]; emptyLabel: st
           <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/70">
             <span>Pair {token.symbol}/{resolveQuoteSymbol(token.quote_token_address)}</span>
             <StatusBadge status={token.status} />
+            {token.volumeSpike && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-200">Volume spike</span>}
           </div>
         </Link>
       ))}
@@ -243,6 +303,16 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function getTokenLabels(token: TokenCard) {
+  const labels: string[] = [];
+  if (token.isHot) labels.push('Hot');
+  if (token.isNew) labels.push('New');
+  if (token.isMoving) labels.push('Moving');
+  if (token.status === 'migrated') labels.push('Migrated');
+  if (token.nearMigration) labels.push('Near migration');
+  return labels;
+}
+
 function ChangeBadge({ label, value }: { label: string; value?: string }) {
   const parsed = parsePercent(value);
   const tone = parsed > 0 ? 'text-emerald-300' : parsed < 0 ? 'text-rose-300' : 'text-white/60';
@@ -280,13 +350,19 @@ function parseNumber(value?: string) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
-function enrichToken(token: BaseToken, recentTradeMap: Set<string>): TokenCard {
+function enrichToken(token: EnrichedToken, recentTradeMap: Set<string>): TokenCard {
   const volumeValue = parseNumber(token.volume24h);
   const change5mValue = parsePercent(token.change5m);
   const change1hValue = parsePercent(token.change1h);
   const change24hValue = parsePercent(token.change24h);
-  const tradeCount = token.trades24h ?? 0;
+  const tradeCount = 'trades24h' in token && typeof token.trades24h === 'number' ? token.trades24h : parseInt(token.volume24h ?? '0', 10) || 0;
   const createdAtValue = token.createdAt ? Date.parse(token.createdAt) : Date.now();
+  const ageMs = Date.now() - createdAtValue;
+  const isHot = tradeCount >= 10 || volumeValue >= 5;
+  const isNew = ageMs <= NEW_WINDOW_MS;
+  const isMoving = Math.abs(change5mValue) >= 2 || Math.abs(change1hValue) >= 5;
+  const nearMigration = token.status === 'migration_pending';
+  const volumeSpike = volumeValue >= 10 && change24hValue > 5;
 
   return {
     ...token,
@@ -296,6 +372,11 @@ function enrichToken(token: BaseToken, recentTradeMap: Set<string>): TokenCard {
     change24hValue,
     tradeCount,
     createdAtValue,
+    isHot,
+    isNew,
+    isMoving,
+    nearMigration,
+    volumeSpike,
     justTraded: recentTradeMap.has(token.token_id)
   } as TokenCard;
 }
@@ -317,7 +398,7 @@ function trendingSort(a: TokenCard, b: TokenCard) {
   return b.volumeValue - a.volumeValue;
 }
 
-function describeSource(source: string) {
+function describeSource(source: DataSource) {
   if (source === 'api') return 'Live indexer';
   if (source === 'snapshot') return 'Indexer snapshot';
   return 'Mock fallback';
