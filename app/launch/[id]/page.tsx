@@ -10,6 +10,7 @@ import { useWallet } from '@/lib/providers/WalletProvider';
 import TestModeGate from '@/components/common/TestModeGate';
 import { useTokenSummary } from '@/hooks/useTokenSummary';
 import { useRecentTrades } from '@/hooks/useRecentTrades';
+import { useDiscoverySummary } from '@/hooks/useDiscoverySummary';
 import { getBuyQuote, getSellQuote, type QuoteSource } from '@/lib/api/quotes';
 import { bondingCurveMarketAbi } from '@/lib/abi/bondingCurveMarket';
 import { launchConfig } from '@/lib/launchConfig';
@@ -40,9 +41,38 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
   const wallet = useWallet();
   const summary = useTokenSummary(params.id);
   const trades = useRecentTrades(params.id);
+  const discovery = useDiscoverySummary();
   const [localActivity, setLocalActivity] = useState<ActivityItem[]>([]);
 
+  useEffect(() => {
+    if (summary.data) {
+      console.log('TOKEN DETAIL:', summary.data);
+    }
+  }, [summary.data]);
+
+  const discoveryToken = useMemo(() => {
+    if (!discovery.data) return null;
+    return (
+      discovery.data.latestTokens.find((token) => token.token_id === params.id) ||
+      discovery.data.mostActiveTokens.find((token) => token.token_id === params.id) ||
+      null
+    );
+  }, [discovery.data, params.id]);
+
   const info = summary.data;
+  const marketAddress =
+    info?.marketAddress ||
+    info?.token_address ||
+    info?.tokenAddress ||
+    discoveryToken?.launchpad_market ||
+    discoveryToken?.token_address ||
+    null;
+  const displayName = info?.name || discoveryToken?.name || `Token #${params.id}`;
+  const displaySymbol = info?.symbol || discoveryToken?.symbol || '—';
+  const displayPrice = info?.priceNative || discoveryToken?.priceNative || '—';
+  const displayVolume = info?.volume24h || discoveryToken?.volume24h || '0';
+  const displayTokenAddress = info?.tokenAddress || info?.token_address || discoveryToken?.token_address || discoveryToken?.launchpad_market || '';
+  const displayStatus = discoveryToken?.status === 'migrated' ? 'Migrated to Uniswap' : marketAddress ? 'Bonding curve active' : 'Market initializing';
   const baseActivity = useMemo<ActivityItem[]>(
     () =>
       (trades.data ?? []).map((trade) => ({
@@ -63,8 +93,6 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
     () => [...localActivity, ...baseActivity],
     [localActivity, baseActivity]
   );
-
-  const marketAddress = info?.marketAddress || info?.token_address || info?.tokenAddress || null;
 
   function appendActivity(
     direction: 'buy' | 'sell',
@@ -88,8 +116,10 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
       <header className="flex flex-col gap-3 rounded-3xl border border-white/10 bg-slate-900/60 p-6 shadow-lg md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm text-white/60">Token #{params.id}</p>
-          <h1 className="text-3xl font-semibold text-white">{info?.name || 'Unknown'}</h1>
-          <p className="text-white/70">{info?.symbol || '—'} · {shortAddress(info?.tokenAddress || info?.token_address)}</p>
+          <h1 className="text-3xl font-semibold text-white">{displayName}</h1>
+          <p className="text-white/70">
+            {displaySymbol} · {displayTokenAddress ? shortAddress(displayTokenAddress) : 'address pending'}
+          </p>
         </div>
         <div className="text-sm text-white/60">
           <p>Chain: Sepolia</p>
@@ -100,25 +130,25 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
       </header>
 
       <section className="grid gap-3 md:grid-cols-3">
-        <MetricCard label="Price" value={`${info?.priceNative || '—'} ETH`} />
-        <MetricCard label="Market status" value={info ? 'Bonding curve active' : 'Loading…'} />
-        <MetricCard label="Volume 24h" value={`${info?.volume24h || '0'} ETH`} />
+        <MetricCard label="Price" value={`${displayPrice} ETH`} />
+        <MetricCard label="Market status" value={displayStatus} />
+        <MetricCard label="Volume 24h" value={`${displayVolume} ETH`} />
       </section>
 
-      <ChartPlaceholder price={info?.priceNative} volume={info?.volume24h} />
+      <ChartPlaceholder price={displayPrice === '—' ? undefined : displayPrice} volume={displayVolume} />
 
       <TradePanels
         tokenId={params.id}
         wallet={wallet}
         marketAddress={marketAddress}
         appendActivity={appendActivity}
-        price={info?.priceNative}
+        price={displayPrice === '—' ? undefined : displayPrice}
       />
 
       <section className="space-y-2 rounded-2xl border border-white/10 bg-slate-900/60 p-4">
         <h2 className="text-lg font-semibold text-white">Migration progress</h2>
         <p className="text-sm text-white/70">
-          When the threshold is reached, liquidity migrates to Uniswap and LP is locked at LPForeverLock ({shortAddress(info?.tokenAddress || info?.token_address) || 'pending'}).
+          When the threshold is reached, liquidity migrates to Uniswap and LP is locked at LPForeverLock ({displayTokenAddress ? shortAddress(displayTokenAddress) : 'pending'}).
         </p>
         <div className="mt-2 h-3 w-full rounded-full bg-white/10">
           <div className="h-full rounded-full bg-indigo-400" style={{ width: `${info ? 45 : 10}%` }} />

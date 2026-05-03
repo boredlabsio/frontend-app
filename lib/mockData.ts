@@ -45,129 +45,138 @@ export const leaderboardMock: LeaderboardEntry[] = [
   }
 ];
 
-import type { DiscoverySummaryResponse } from '@/lib/api/types';
+import type { DiscoverySummaryResponse, TokenSummaryResponse, RecentTradesResponse } from '@/lib/api/types';
+
+const mockCatalog = [
+  {
+    tokenId: '1',
+    name: 'Pump Live 1777687392334',
+    symbol: 'PLIVE',
+    tokenAddress: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
+    marketAddress: '0x9399f30f694D6265fbe097CdeBB851a4Bf1b1eae',
+    quoteTokenAddress: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
+    createdAt: new Date().toISOString(),
+    status: 'curve' as const,
+    priceNative: '0.0000275',
+    change5m: '+0.8%',
+    change1h: '+6.2%',
+    change24h: '+18.4%',
+    volume24h: '62.4',
+    trades24h: 34
+  },
+  {
+    tokenId: '2',
+    name: 'Mock Migrated',
+    symbol: 'MOCKX',
+    tokenAddress: '0x19610bCa8175522165d9415506D5d59fAe1C6795',
+    marketAddress: '0x90324CacFf73eC359D62202EEad5Fa721B7a7663',
+    quoteTokenAddress: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
+    status: 'migrated' as const,
+    priceNative: '0.00019',
+    change5m: '-0.2%',
+    change1h: '+2.1%',
+    change24h: '+12.0%',
+    volume24h: '88.1',
+    trades24h: 22
+  }
+];
+
+export const tokenSummaryMocks: Record<string, TokenSummaryResponse> = mockCatalog.reduce(
+  (acc, token) => {
+    acc[token.tokenId] = {
+      tokenId: token.tokenId,
+      name: token.name,
+      symbol: token.symbol,
+      image: null,
+      description: `${token.name} mock summary`,
+      priceNative: token.priceNative,
+      marketCapNative: (Number(token.priceNative) * 1000000).toFixed(2),
+      supply: '1000000',
+      remaining: '420000',
+      volume24h: token.volume24h,
+      trades24h: token.trades24h,
+      marketAddress: token.marketAddress,
+      tokenAddress: token.tokenAddress,
+      token_address: token.tokenAddress,
+      quoteTokenAddress: token.quoteTokenAddress,
+      quote_token_address: token.quoteTokenAddress,
+      tokenDecimals: 18,
+      feeBps: 100
+    } as TokenSummaryResponse;
+    return acc;
+  },
+  {} as Record<string, TokenSummaryResponse>
+);
+
+export function getMockTokenSummary(tokenId: string): TokenSummaryResponse {
+  if (tokenSummaryMocks[tokenId]) return tokenSummaryMocks[tokenId];
+  console.warn('[mock] missing token summary for id', tokenId, 'falling back to first mock');
+  const fallbackKey = Object.keys(tokenSummaryMocks)[0];
+  return tokenSummaryMocks[fallbackKey];
+}
+
+const latestTokens = mockCatalog.map((token) => ({
+  token_id: token.tokenId,
+  name: token.name,
+  symbol: token.symbol,
+  token_address: token.tokenAddress,
+  launchpad_market: token.marketAddress,
+  quote_token_address: token.quoteTokenAddress,
+  createdAt: token.createdAt,
+  status: token.status,
+  priceNative: token.priceNative,
+  change5m: token.change5m,
+  change1h: token.change1h,
+  change24h: token.change24h,
+  volume24h: token.volume24h
+}));
+
+const mostActiveTokens = mockCatalog.map((token) => ({
+  token_id: token.tokenId,
+  name: token.name,
+  symbol: token.symbol,
+  token_address: token.tokenAddress,
+  launchpad_market: token.marketAddress,
+  quote_token_address: token.quoteTokenAddress,
+  volume24h: (Number(token.volume24h) * 1.5).toFixed(1),
+  trades24h: token.trades24h,
+  priceNative: token.priceNative,
+  change24h: token.change24h,
+  status: token.status
+}));
 
 export const summaryMock: DiscoverySummaryResponse = {
   generatedAt: new Date().toISOString(),
   chain: 'sepolia',
-  latestTokens: [
-    {
-      token_id: '1',
-      name: 'Pump Live 1777687392334',
-      symbol: 'PLIVE',
-      token_address: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
-      launchpad_market: '0x9399f30f694D6265fbe097CdeBB851a4Bf1b1eae',
-      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
-      createdAt: new Date().toISOString(),
-      status: 'curve',
-      priceNative: '0.0000275',
-      change5m: '+0.8%',
-      change1h: '+6.2%',
-      change24h: '+18.4%',
-      volume24h: '62.4'
-    },
-    {
-      token_id: '2',
-      name: 'Mock Migrated',
-      symbol: 'MOCKX',
-      token_address: '0x19610bCa8175522165d9415506D5d59fAe1C6795',
-      launchpad_market: '0x90324CacFf73eC359D62202EEad5Fa721B7a7663',
-      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-      status: 'migrated',
-      priceNative: '0.00019',
-      change5m: '-0.2%',
-      change1h: '+2.1%',
-      change24h: '+12.0%',
-      volume24h: '88.1'
-    }
-  ],
-  mostActiveTokens: [
-    {
-      token_id: '1',
-      name: 'Pump Live 1777687392334',
-      symbol: 'PLIVE',
-      token_address: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
-      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
-      volume24h: '120.4',
-      trades24h: 34,
-      priceNative: '0.0000275',
-      change24h: '+18.4%',
-      status: 'curve'
-    },
-    {
-      token_id: '2',
-      name: 'Mock Migrated',
-      symbol: 'MOCKX',
-      token_address: '0x19610bCa8175522165d9415506D5d59fAe1C6795',
-      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
-      volume24h: '88.1',
-      trades24h: 22,
-      priceNative: '0.00019',
-      change24h: '+12.0%',
-      status: 'migrated'
-    }
-  ],
-  recentTrades: [
-    {
-      token_id: '1',
-      token_name: 'Pump Live 1777687392334',
-      token_symbol: 'PLIVE',
-      direction: 'buy' as const,
-      tx_hash: '0x123',
-      block_number: '0',
-      native_in: '10000000000000000',
-      native_out: null,
-      token_in: null,
-      token_out: '100000000000',
-      token_address: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
-      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
-      execution_price_native: '38976.5',
-      execution_price_usd: '0.01',
-      wallet: '0x7bFe4b219b5eC65B0e3c183f78B967245c674673',
-      timestamp: new Date().toISOString()
-    },
-    {
-      token_id: '2',
-      token_name: 'Mock Migrated',
-      token_symbol: 'MOCKX',
-      direction: 'sell' as const,
-      tx_hash: '0x456',
-      block_number: '1',
-      native_in: null,
-      native_out: '25000000000000000',
-      token_in: '250000000000',
-      token_out: null,
-      token_address: '0x19610bCa8175522165d9415506D5d59fAe1C6795',
-      quote_token_address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
-      execution_price_native: '40210.1',
-      execution_price_usd: '0.02',
-      wallet: '0xf25bBA3104470e2001D19f2a3EfE6ece403beb5D',
-      timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString()
-    }
-  ]
+  latestTokens,
+  mostActiveTokens,
+  recentTrades: mockCatalog.map((token, index) => ({
+    token_id: token.tokenId,
+    token_name: token.name,
+    token_symbol: token.symbol,
+    direction: index % 2 === 0 ? ('buy' as const) : ('sell' as const),
+    tx_hash: index % 2 === 0 ? '0x123' : '0x456',
+    block_number: String(index),
+    native_in: index % 2 === 0 ? '10000000000000000' : null,
+    native_out: index % 2 === 0 ? null : '25000000000000000',
+    token_in: index % 2 === 0 ? null : '250000000000',
+    token_out: index % 2 === 0 ? '100000000000' : null,
+    token_address: token.tokenAddress,
+    quote_token_address: token.quoteTokenAddress,
+    execution_price_native: index % 2 === 0 ? '38976.5' : '40210.1',
+    execution_price_usd: index % 2 === 0 ? '0.01' : '0.02',
+    wallet: index % 2 === 0 ? '0x7bFe4b219b5eC65B0e3c183f78B967245c674673' : '0xf25bBA3104470e2001D19f2a3EfE6ece403beb5D',
+    timestamp: index === 0 ? new Date().toISOString() : new Date(Date.now() - 1000 * 60 * 5).toISOString()
+  }))
 };
 
-export const tokenSummaryMock = {
-  tokenId: '1',
-  name: 'Mock Token',
-  symbol: 'MOCK',
-  image: null,
-  description: 'Placeholder launch token.',
-  priceNative: '0.0001',
-  marketCapNative: '10',
-  supply: '1000000',
-  remaining: '420000',
-  volume24h: '12.5',
-  trades24h: 18,
-  marketAddress: '0x9399f30f694D6265fbe097CdeBB851a4Bf1b1eae',
-  tokenAddress: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
-  quoteTokenAddress: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
-  tokenDecimals: 18,
-  feeBps: 100
-};
+export const tradesMock: RecentTradesResponse = summaryMock.recentTrades;
 
-export const tradesMock = summaryMock.recentTrades;
+export function getMockRecentTrades(tokenId?: string) {
+  if (!tokenId) return tradesMock;
+  return tradesMock.filter((trade) => trade.token_id === tokenId);
+}
 
 export const userSummaryMock = {
   rank: 3,

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import NextActionHint from '@/components/common/NextActionHint';
 import TestModeGate from '@/components/common/TestModeGate';
 import { useDiscoverySummary } from '@/hooks/useDiscoverySummary';
@@ -81,6 +81,7 @@ function TokenGrid({
     name: string;
     symbol: string;
     token_address: string;
+    launchpad_market?: string;
     quote_token_address?: string;
     priceNative?: string;
     volume24h?: string;
@@ -92,6 +93,10 @@ function TokenGrid({
   }>;
   emptyLabel: string;
 }) {
+  useEffect(() => {
+    tokens.forEach((token) => console.log('DISCOVERY TOKEN:', token));
+  }, [tokens]);
+
   if (!tokens.length) {
     return <EmptyCard label={emptyLabel} />;
   }

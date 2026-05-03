@@ -89,6 +89,7 @@ export type DiscoverySummaryResponse = {
     name: string;
     symbol: string;
     token_address: string;
+    launchpad_market?: string;
     quote_token_address?: string;
     volume24h: string;
     trades24h: number;
