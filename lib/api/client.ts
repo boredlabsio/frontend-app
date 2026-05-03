@@ -27,5 +27,7 @@ export const api = {
   getClaimable: (address: string) => request<ClaimableResponse>(`/claim/${address}`),
   getDiscoverySummary: () => request<DiscoverySummaryResponse>('/discovery/summary'),
   getTokenSummary: (tokenId: string) => request<TokenSummaryResponse>(`/tokens/${tokenId}/summary`),
-  getRecentTrades: (tokenId?: string) => request<RecentTradesResponse>(tokenId ? `/tokens/${tokenId}/trades` : '/trades/recent')
+  getRecentTrades: (tokenId?: string) => request<RecentTradesResponse>(tokenId ? `/tokens/${tokenId}/trades` : '/trades/recent'),
+  getQuoteBuy: (tokenId: string, amountInEth: string) => request<{ amountOut: string }>(`/tokens/${tokenId}/quote/buy?amount=${amountInEth}`),
+  getQuoteSell: (tokenId: string, amountInToken: string) => request<{ amountOut: string }>(`/tokens/${tokenId}/quote/sell?amount=${amountInToken}`)
 };

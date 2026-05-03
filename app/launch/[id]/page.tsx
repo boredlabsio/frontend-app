@@ -6,7 +6,8 @@ import { useWallet } from '@/lib/providers/WalletProvider';
 import TestModeGate from '@/components/common/TestModeGate';
 import { useTokenSummary } from '@/hooks/useTokenSummary';
 import { useRecentTrades } from '@/hooks/useRecentTrades';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { getBuyQuote, getSellQuote, type QuoteSource } from '@/lib/api/quotes';
 
 type TradeStatus = 'idle' | 'preparing' | 'wallet' | 'pending' | 'success' | 'error';
 
@@ -59,6 +60,7 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
       </section>
 
       <TradePanels
+        tokenId={params.id}
         walletConnected={wallet.connected}
         price={info?.priceNative}
         appendActivity={appendMockTrade}
@@ -101,22 +103,59 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TradePanels({ walletConnected, price, appendActivity }: { walletConnected: boolean; price?: string; appendActivity: (direction: 'buy' | 'sell', amount: string) => void }) {
+function TradePanels({ tokenId, walletConnected, price, appendActivity }: { tokenId: string; walletConnected: boolean; price?: string; appendActivity: (direction: 'buy' | 'sell', amount: string) => void }) {
   const [buyAmount, setBuyAmount] = useState('');
   const [sellAmount, setSellAmount] = useState('');
   const [buyStatus, setBuyStatus] = useState<TradeStatus>('idle');
   const [sellStatus, setSellStatus] = useState<TradeStatus>('idle');
+  const [buyQuote, setBuyQuote] = useState<{ amount: string; source: QuoteSource }>({ amount: '0', source: 'unavailable' });
+  const [sellQuote, setSellQuote] = useState<{ amount: string; source: QuoteSource }>({ amount: '0', source: 'unavailable' });
+
   const numericPrice = Number(price || '0.0001') || 0.0001;
 
-  const buyQuote = useMemo(() => {
+  const mockBuyValue = useMemo(() => {
     if (!buyAmount) return '0';
     return (Number(buyAmount || 0) / numericPrice).toFixed(2);
   }, [buyAmount, numericPrice]);
 
-  const sellQuote = useMemo(() => {
+  const mockSellValue = useMemo(() => {
     if (!sellAmount) return '0';
     return (Number(sellAmount || 0) * numericPrice).toFixed(4);
   }, [sellAmount, numericPrice]);
+
+  useEffect(() => {
+    if (!buyAmount) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const quote = await getBuyQuote(tokenId, buyAmount);
+      if (cancelled) return;
+      const source: QuoteSource = quote.source === 'live' ? 'live' : 'mock';
+      const amount = source === 'live' ? quote.amount : mockBuyValue;
+      setBuyQuote({ amount, source });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [buyAmount, tokenId, mockBuyValue]);
+
+  useEffect(() => {
+    if (!sellAmount) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const quote = await getSellQuote(tokenId, sellAmount);
+      if (cancelled) return;
+      const source: QuoteSource = quote.source === 'live' ? 'live' : 'mock';
+      const amount = source === 'live' ? quote.amount : mockSellValue;
+      setSellQuote({ amount, source });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sellAmount, tokenId, mockSellValue]);
 
   async function simulateTrade(direction: 'buy' | 'sell') {
     const hasWallet = walletConnected;
@@ -144,13 +183,28 @@ function TradePanels({ walletConnected, price, appendActivity }: { walletConnect
     }
   }
 
+  const handleBuyInput = (value: string) => {
+    setBuyAmount(value);
+    if (!value) {
+      setBuyQuote({ amount: '0', source: 'unavailable' });
+    }
+  };
+
+  const handleSellInput = (value: string) => {
+    setSellAmount(value);
+    if (!value) {
+      setSellQuote({ amount: '0', source: 'unavailable' });
+    }
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <TradePanel
         title="Buy"
         inputValue={buyAmount}
-        setInputValue={setBuyAmount}
-        outputValue={`${buyQuote} TOKEN`}
+        setInputValue={handleBuyInput}
+        outputValue={`${buyQuote.amount} TOKEN`}
+        quoteSource={buyQuote.source}
         walletConnected={walletConnected}
         status={buyStatus}
         onSubmit={() => simulateTrade('buy')}
@@ -158,8 +212,9 @@ function TradePanels({ walletConnected, price, appendActivity }: { walletConnect
       <TradePanel
         title="Sell"
         inputValue={sellAmount}
-        setInputValue={setSellAmount}
-        outputValue={`${sellQuote} ETH`}
+        setInputValue={handleSellInput}
+        outputValue={`${sellQuote.amount} ETH`}
+        quoteSource={sellQuote.source}
         walletConnected={walletConnected}
         status={sellStatus}
         onSubmit={() => simulateTrade('sell')}
@@ -173,6 +228,7 @@ function TradePanel({
   inputValue,
   setInputValue,
   outputValue,
+  quoteSource,
   walletConnected,
   status,
   onSubmit
@@ -181,12 +237,14 @@ function TradePanel({
   inputValue: string;
   setInputValue: (value: string) => void;
   outputValue: string;
+  quoteSource: QuoteSource;
   walletConnected: boolean;
   status: TradeStatus;
   onSubmit: () => void;
 }) {
   const disabled = !walletConnected || !inputValue || status === 'pending' || status === 'wallet';
   const statusMessage = getStatusMessage(status, walletConnected, Boolean(inputValue));
+  const quoteLabel = quoteSource === 'live' ? 'Live quote' : quoteSource === 'mock' ? 'Mock quote' : 'Quote unavailable';
 
   return (
     <div className="space-y-3 rounded-3xl border border-white/10 bg-slate-900/60 p-5">
@@ -207,7 +265,8 @@ function TradePanel({
         />
       </div>
       <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-sm text-white/70">
-        Quote preview: {outputValue}
+        <p>Quote preview: {outputValue}</p>
+        <p className="text-xs text-white/50">{quoteLabel}</p>
       </div>
       <button
         onClick={onSubmit}
