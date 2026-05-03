@@ -7,16 +7,16 @@ import { SoundProvider } from '@/lib/providers/SoundProvider';
 import QueryProvider from '@/lib/providers/QueryProvider';
 import { ToastProvider } from '@/components/common/ToastProvider';
 
-export function Providers({ children }: { children: ReactNode }) {
+export default function Providers({ children }: { children: ReactNode }) {
   return (
-    <AppWagmiProvider>
-      <WalletProvider>
-        <SoundProvider>
-          <QueryProvider>
+    <QueryProvider>
+      <AppWagmiProvider>
+        <WalletProvider>
+          <SoundProvider>
             <ToastProvider>{children}</ToastProvider>
-          </QueryProvider>
-        </SoundProvider>
-      </WalletProvider>
-    </AppWagmiProvider>
+          </SoundProvider>
+        </WalletProvider>
+      </AppWagmiProvider>
+    </QueryProvider>
   );
 }
