@@ -1,5 +1,7 @@
 import type { Hex } from 'viem';
 
+export type DataSource = 'api' | 'snapshot' | 'mock';
+
 export type LeaderboardEntryApi = {
   rank: number;
   address: string;

@@ -1,37 +1,69 @@
-import type { DiscoverySummaryResponse, TokenSummaryResponse, RecentTradesResponse } from '@/lib/api/types';
+import type { DataSource, DiscoverySummaryResponse, TokenSummaryResponse, RecentTradesResponse } from '@/lib/api/types';
 import { apiAvailable, api } from './client';
 import { summaryMock, getMockTokenSummary, getMockRecentTrades } from '@/lib/mockData';
+import { fetchDiscoverySnapshot, getTokenSummaryFromSnapshot, getRecentTradesFromSnapshot } from './snapshot';
 
-export function useDiscoverySummaryFallback(): DiscoverySummaryResponse {
-  return summaryMock;
+function withSource<T>(value: T, source: DataSource): T & { __source: DataSource } {
+  if (Array.isArray(value)) {
+    return Object.assign([...value], { __source: source }) as T & { __source: DataSource };
+  }
+  return { ...(value as Record<string, unknown>), __source: source } as T & { __source: DataSource };
 }
 
-export async function fetchDiscoverySummary(): Promise<DiscoverySummaryResponse> {
-  if (!apiAvailable) return Promise.resolve(summaryMock);
-  try {
-    return await api.getDiscoverySummary();
-  } catch (err) {
-    console.warn('[discovery] falling back to mock', err);
-    return summaryMock;
-  }
+export function useDiscoverySummaryFallback(): DiscoverySummaryResponse & { __source: DataSource } {
+  return withSource({ ...summaryMock }, 'mock');
 }
 
-export async function fetchTokenSummary(tokenId: string): Promise<TokenSummaryResponse> {
-  if (!apiAvailable) return Promise.resolve(getMockTokenSummary(tokenId));
-  try {
-    return await api.getTokenSummary(tokenId);
-  } catch (err) {
-    console.warn(`[token-summary] falling back to mock for ${tokenId}`, err);
-    return getMockTokenSummary(tokenId);
+export async function fetchDiscoverySummary(): Promise<DiscoverySummaryResponse & { __source: DataSource }> {
+  if (apiAvailable) {
+    try {
+      const data = await api.getDiscoverySummary();
+      return withSource(data, 'api');
+    } catch (err) {
+      console.warn('[discovery] API failed, trying snapshot', err);
+    }
   }
+
+  const snapshot = await fetchDiscoverySnapshot();
+  if (snapshot) {
+    return withSource(snapshot, 'snapshot');
+  }
+
+  return withSource({ ...summaryMock }, 'mock');
 }
 
-export async function fetchRecentTrades(tokenId?: string): Promise<RecentTradesResponse> {
-  if (!apiAvailable) return Promise.resolve(getMockRecentTrades(tokenId));
-  try {
-    return await api.getRecentTrades(tokenId);
-  } catch (err) {
-    console.warn('[recent-trades] falling back to mock', err);
-    return getMockRecentTrades(tokenId);
+export async function fetchTokenSummary(tokenId: string): Promise<TokenSummaryResponse & { __source: DataSource }> {
+  if (apiAvailable) {
+    try {
+      const data = await api.getTokenSummary(tokenId);
+      return withSource(data, 'api');
+    } catch (err) {
+      console.warn(`[token-summary] API failed for ${tokenId}, trying snapshot`, err);
+    }
   }
+
+  const snapshotSummary = await getTokenSummaryFromSnapshot(tokenId);
+  if (snapshotSummary) {
+    return withSource(snapshotSummary, 'snapshot');
+  }
+
+  return withSource(getMockTokenSummary(tokenId), 'mock');
+}
+
+export async function fetchRecentTrades(tokenId?: string): Promise<RecentTradesResponse & { __source: DataSource }> {
+  if (apiAvailable) {
+    try {
+      const data = await api.getRecentTrades(tokenId);
+      return withSource(data, 'api');
+    } catch (err) {
+      console.warn('[recent-trades] API failed, trying snapshot', err);
+    }
+  }
+
+  const snapshotTrades = await getRecentTradesFromSnapshot(tokenId);
+  if (snapshotTrades) {
+    return withSource(snapshotTrades, 'snapshot');
+  }
+
+  return withSource(getMockRecentTrades(tokenId), 'mock');
 }
