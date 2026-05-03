@@ -255,7 +255,7 @@ function TradePanels({ tokenId, wallet, price, marketAddress, appendActivity }: 
       setBuyStatus({ state: 'error', error: 'Enter a valid ETH amount.' });
       return;
     }
-    if (valueWei <= 0n) {
+    if (valueWei <= BigInt(0)) {
       setBuyStatus({ state: 'error', error: 'Amount must be greater than zero.' });
       return;
     }
@@ -271,15 +271,15 @@ function TradePanels({ tokenId, wallet, price, marketAddress, appendActivity }: 
           functionName: 'quoteBuy',
           args: [valueWei]
         });
-        if (tokensOut > 0n) {
-          minTokensOut = (tokensOut * 9700n) / 10000n;
+        if (tokensOut > BigInt(0)) {
+          minTokensOut = (tokensOut * BigInt(9700)) / BigInt(10000);
         }
       } catch (err) {
         console.warn('quoteBuy failed', err);
       }
     }
 
-    if (!minTokensOut || minTokensOut <= 0n) {
+    if (!minTokensOut || minTokensOut <= BigInt(0)) {
       setBuyStatus({ state: 'error', error: 'Unable to fetch on-chain quote. Try again.' });
       return;
     }
