@@ -45,6 +45,60 @@ export const leaderboardMock: LeaderboardEntry[] = [
   }
 ];
 
+export const summaryMock = {
+  generatedAt: new Date().toISOString(),
+  chain: 'sepolia',
+  latestTokens: [
+    {
+      token_id: '1',
+      name: 'Mock Token',
+      symbol: 'MOCK',
+      token_address: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
+      createdAt: new Date().toISOString()
+    }
+  ],
+  mostActiveTokens: [
+    {
+      token_id: '1',
+      name: 'Mock Token',
+      symbol: 'MOCK',
+      token_address: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
+      volume24h: '120.4',
+      trades24h: 34
+    }
+  ],
+  recentTrades: [
+    {
+      token_id: '1',
+      direction: 'buy' as const,
+      tx_hash: '0x123',
+      block_number: '0',
+      native_in: '10000000000000000',
+      native_out: null,
+      token_in: null,
+      token_out: '100000000000',
+      token_address: '0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5',
+      execution_price_native: '38976.5'
+    }
+  ]
+};
+
+export const tokenSummaryMock = {
+  tokenId: '1',
+  name: 'Mock Token',
+  symbol: 'MOCK',
+  image: null,
+  description: 'Placeholder launch token.',
+  priceNative: '0.0001',
+  marketCapNative: '10',
+  supply: '1000000',
+  remaining: '420000',
+  volume24h: '12.5',
+  trades24h: 18
+};
+
+export const tradesMock = summaryMock.recentTrades;
+
 export const userSummaryMock = {
   rank: 3,
   points: 65,

@@ -1,4 +1,4 @@
-import type { LeaderboardResponse, UserRewardsResponse, ActivityResponse, ClaimableResponse } from '@/lib/api/types';
+import type { LeaderboardResponse, UserRewardsResponse, ActivityResponse, ClaimableResponse, DiscoverySummaryResponse, TokenSummaryResponse, RecentTradesResponse } from '@/lib/api/types';
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
 export const apiAvailable = Boolean(API_BASE);
@@ -24,5 +24,8 @@ export const api = {
   getLeaderboard: (windowKey: 'all' | '7d' | '24h') => request<LeaderboardResponse>(`/leaderboard?window=${windowKey}`),
   getUserRewards: (address: string) => request<UserRewardsResponse>(`/user/${address}`),
   getActivity: (address: string) => request<ActivityResponse>(`/user/${address}/activity`),
-  getClaimable: (address: string) => request<ClaimableResponse>(`/claim/${address}`)
+  getClaimable: (address: string) => request<ClaimableResponse>(`/claim/${address}`),
+  getDiscoverySummary: () => request<DiscoverySummaryResponse>('/discovery/summary'),
+  getTokenSummary: (tokenId: string) => request<TokenSummaryResponse>(`/tokens/${tokenId}/summary`),
+  getRecentTrades: (tokenId?: string) => request<RecentTradesResponse>(tokenId ? `/tokens/${tokenId}/trades` : '/trades/recent')
 };

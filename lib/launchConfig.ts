@@ -1,0 +1,15 @@
+const DEFAULTS = {
+  chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID || 11155111),
+  chainName: process.env.NEXT_PUBLIC_CHAIN_NAME || 'Sepolia',
+  registry: process.env.NEXT_PUBLIC_LAUNCH_REGISTRY || '0xFf8196CbfB0674E9aA2fD44fE6Ba560864Aae060',
+  factory: process.env.NEXT_PUBLIC_LAUNCH_FACTORY || '0x04d6FaBF22eC012742406fDa44643D53cc8872CD',
+  feeSplitter: process.env.NEXT_PUBLIC_FEE_SPLITTER || '0xA391673ef6Cb67F89bC4Ae04b63812AD814679E4',
+  rewardsVault: process.env.NEXT_PUBLIC_REWARDS_VAULT || '0x5249D427EC84298fBD59e104355BA362DbeB9767',
+  lpForeverLock: process.env.NEXT_PUBLIC_LP_FOREVER_LOCK || '0x90324CacFf73eC359D62202EEad5Fa721B7a7663',
+  weth: process.env.NEXT_PUBLIC_WETH || '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
+  launchFeeWei: BigInt(process.env.NEXT_PUBLIC_LAUNCH_FEE_WEI || '10000000000000000')
+};
+
+export const launchConfig = {
+  ...DEFAULTS
+};

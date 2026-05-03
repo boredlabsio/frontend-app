@@ -65,3 +65,51 @@ export type ClaimableResponse = {
   mock: boolean;
   serverTime?: string;
 };
+
+export type DiscoverySummaryResponse = {
+  generatedAt: string;
+  chain: string;
+  latestTokens: Array<{
+    token_id: string;
+    name: string;
+    symbol: string;
+    token_address: string;
+    createdAt: string;
+  }>;
+  mostActiveTokens: Array<{
+    token_id: string;
+    name: string;
+    symbol: string;
+    token_address: string;
+    volume24h: string;
+    trades24h: number;
+  }>;
+  recentTrades: Array<{
+    token_id: string;
+    direction: 'buy' | 'sell';
+    tx_hash: string;
+    block_number: string;
+    native_in: string | null;
+    native_out: string | null;
+    token_in: string | null;
+    token_out: string | null;
+    token_address: string;
+    execution_price_native: string;
+  }>;
+};
+
+export type TokenSummaryResponse = {
+  tokenId: string;
+  name: string;
+  symbol: string;
+  image: string | null;
+  description: string | null;
+  priceNative: string;
+  marketCapNative: string;
+  supply: string;
+  remaining: string;
+  volume24h: string;
+  trades24h: number;
+};
+
+export type RecentTradesResponse = DiscoverySummaryResponse['recentTrades'];
