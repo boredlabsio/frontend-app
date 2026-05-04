@@ -23,8 +23,6 @@ function getSourceTag(value: unknown): DataSource | undefined {
 
 type BaseToken = DiscoverySummaryResponse['latestTokens'][number];
 
-type EnrichedToken = BaseToken & { trades24h?: number };
-
 type TokenCard = BaseToken & {
   justTraded?: boolean;
   isHot?: boolean;
@@ -43,13 +41,12 @@ type TokenCard = BaseToken & {
 export default function DiscoverPage() {
   const summary = useDiscoverySummary();
   const trades = useRecentTrades();
-  const [filter, setFilter] = useState<'all' | 'hot' | 'moving' | 'migrated'>('hot');
+  const [filter, setFilter] = useState<'hot' | 'moving' | 'nearMigration' | 'new'>('hot');
 
   const summarySource = getSourceTag(summary.data) ?? 'mock';
   const tradesSource = getSourceTag(trades.data) ?? summarySource;
 
   const latestTokens = useMemo(() => summary.data?.latestTokens ?? [], [summary.data]);
-  const mostActiveRaw = useMemo(() => summary.data?.mostActiveTokens ?? [], [summary.data]);
   const recentTradeList = useMemo<RecentTradesResponse>(() => trades.data ?? [], [trades.data]);
 
   const recentTradeMap = useMemo(() => buildRecentTradeMap(recentTradeList), [recentTradeList]);
@@ -59,47 +56,22 @@ export default function DiscoverPage() {
     [latestTokens, recentTradeMap]
   );
 
-  const latestById = useMemo(() => new Map(enhancedLatest.map((token) => [token.token_id, token])), [enhancedLatest]);
-
-  const trendingTokens = useMemo(() => {
+  const filteredTokens = useMemo(() => {
     const base = [...enhancedLatest].sort(trendingSort);
     switch (filter) {
       case 'hot':
-        return base.filter((token) => token.isHot).slice(0, 6);
+        return base.filter((token) => token.isHot).slice(0, 12);
       case 'moving':
-        return base.filter((token) => token.isMoving).slice(0, 6);
-      case 'migrated':
-        return base.filter((token) => token.status === 'migrated').slice(0, 6);
+        return base.filter((token) => token.isMoving).slice(0, 12);
+      case 'nearMigration':
+        return base.filter((token) => token.nearMigration).slice(0, 12);
+      case 'new':
+        return [...base].sort((a, b) => b.createdAtValue - a.createdAtValue).slice(0, 12);
       default:
-        return base.slice(0, 6);
+        return base.slice(0, 12);
     }
   }, [enhancedLatest, filter]);
 
-  const newLaunches = useMemo(
-    () => [...enhancedLatest].sort((a, b) => b.createdAtValue - a.createdAtValue).slice(0, 6),
-    [enhancedLatest]
-  );
-
-  const mostActiveTokens = useMemo(
-    () =>
-      mostActiveRaw
-        .map((token) => {
-          if (latestById.has(token.token_id)) return latestById.get(token.token_id)!;
-          const createdAt = (token as { createdAt?: string }).createdAt ?? '1970-01-01T00:00:00Z';
-          return enrichToken({ ...(token as EnrichedToken), createdAt }, recentTradeMap);
-        })
-        .slice(0, 6),
-    [mostActiveRaw, latestById, recentTradeMap]
-  );
-
-  const gainers = useMemo(
-    () =>
-      [...enhancedLatest]
-        .filter((token) => token.change24hValue > 0)
-        .sort((a, b) => b.change24hValue - a.change24hValue)
-        .slice(0, 6),
-    [enhancedLatest]
-  );
 
   const recentlyTraded = useMemo<RecentTradesResponse>(() => recentTradeList.slice(0, 6), [recentTradeList]);
 
@@ -121,8 +93,8 @@ export default function DiscoverPage() {
           <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
             <FilterButton label="Hot" active={filter === 'hot'} onClick={() => setFilter('hot')} />
             <FilterButton label="Moving" active={filter === 'moving'} onClick={() => setFilter('moving')} />
-            <FilterButton label="Migrated" active={filter === 'migrated'} onClick={() => setFilter('migrated')} />
-            <FilterButton label="All" active={filter === 'all'} onClick={() => setFilter('all')} />
+            <FilterButton label="Near Migration" active={filter === 'nearMigration'} onClick={() => setFilter('nearMigration')} />
+            <FilterButton label="New" active={filter === 'new'} onClick={() => setFilter('new')} />
           </div>
         </div>
         <NextActionHint message={dataSourceMessage} tone={dataSourceTone} />
@@ -141,20 +113,8 @@ export default function DiscoverPage() {
 
       {!loading && (
         <div className="space-y-8">
-          <Section title="Trending" description="Top movers by 24h volume and trade heat">
-            <TokenGrid tokens={trendingTokens} emptyLabel="No trending tokens yet." />
-          </Section>
-
-          <Section title="New launches" description="Fresh bonding-curve deployments">
-            <TokenGrid tokens={newLaunches} emptyLabel="No launches yet — spin one up!" />
-          </Section>
-
-          <Section title="Most active" description="Highest trade counts over the last day">
-            <TokenGrid tokens={mostActiveTokens} emptyLabel="No active markets yet." />
-          </Section>
-
-          <Section title="Gainers" description="Largest positive change (24h)">
-            <TokenGrid tokens={gainers} emptyLabel="No gainers yet — keep watching." />
+          <Section title={filterLabel(filter)} description={filterDescription(filter)}>
+            <TokenGrid tokens={filteredTokens} emptyLabel="No tokens match this view yet." />
           </Section>
 
           <Section title="Recently traded" description="Latest buys and sells across all tokens">
@@ -350,7 +310,7 @@ function parseNumber(value?: string) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
-function enrichToken(token: EnrichedToken, recentTradeMap: Set<string>): TokenCard {
+function enrichToken(token: BaseToken, recentTradeMap: Set<string>): TokenCard {
   const volumeValue = parseNumber(token.volume24h);
   const change5mValue = parsePercent(token.change5m);
   const change1hValue = parsePercent(token.change1h);
@@ -402,6 +362,20 @@ function describeSource(source: DataSource) {
   if (source === 'api') return 'Live indexer';
   if (source === 'snapshot') return 'Indexer snapshot';
   return 'Mock fallback';
+}
+
+function filterLabel(filter: 'hot' | 'moving' | 'nearMigration' | 'new') {
+  if (filter === 'hot') return 'Hot';
+  if (filter === 'moving') return 'Moving';
+  if (filter === 'nearMigration') return 'Near Migration';
+  return 'New';
+}
+
+function filterDescription(filter: 'hot' | 'moving' | 'nearMigration' | 'new') {
+  if (filter === 'hot') return 'Highest activity and volume right now';
+  if (filter === 'moving') return 'Fastest short-window momentum shifts';
+  if (filter === 'nearMigration') return 'Tokens approaching migration threshold';
+  return 'Fresh launches in their earliest trading window';
 }
 
 function resolveQuoteSymbol(value?: string) {
