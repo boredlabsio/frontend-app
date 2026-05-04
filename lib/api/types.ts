@@ -84,7 +84,8 @@ export type DiscoverySummaryResponse = {
     change5m?: string;
     change1h?: string;
     change24h?: string;
-    volume24h?: string;
+    volume24h: string;
+    trades24h?: number;
   }>;
   mostActiveTokens: Array<{
     token_id: string;
@@ -97,7 +98,7 @@ export type DiscoverySummaryResponse = {
     trades24h: number;
     priceNative?: string;
     change24h?: string;
-    status?: 'curve' | 'migrated';
+    status?: 'curve' | 'migration_pending' | 'migrated';
   }>;
   recentTrades: Array<{
     token_id: string;

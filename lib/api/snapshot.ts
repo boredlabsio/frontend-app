@@ -3,6 +3,21 @@ import { env } from '@/lib/config/env';
 import { summaryMock, getMockTokenSummary } from '@/lib/mockData';
 import { debugLog } from '@/lib/utils/debug';
 
+function normalizeVolume(value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toString();
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  return '0';
+}
+
+function normalizeTradesCount(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
 let cachedSnapshot: DiscoverySummaryResponse | null = null;
 
 type SnapshotToken = {
@@ -31,8 +46,11 @@ type SnapshotToken = {
   change1h?: string;
   change24h?: string;
   volume24h?: string | number;
+  volume_24h?: string | number;
+  volume?: string | number;
   trades24h?: number;
   trade_count?: number;
+  trades?: number;
 };
 
 type SnapshotTrade = {
@@ -75,6 +93,11 @@ function normalizeId(value: unknown): string {
 
 function normalizeToken(token: SnapshotToken): DiscoverySummaryResponse['latestTokens'][number] {
   const tokenId = normalizeId(token.token_id ?? token.tokenId ?? token.id);
+  const volumeSource = token.volume24h ?? token.volume_24h ?? token.volume;
+  const tradesSource = token.trades24h ?? token.trade_count ?? token.trades;
+  let status: DiscoverySummaryResponse['latestTokens'][number]['status'] = 'curve';
+  if ((token.status ?? token.market_state) === 'migrated') status = 'migrated';
+  else if ((token.status ?? token.market_state) === 'migration_pending') status = 'migration_pending';
   return {
     token_id: tokenId,
     name: token.name ?? `Token #${tokenId}`,
@@ -83,12 +106,13 @@ function normalizeToken(token: SnapshotToken): DiscoverySummaryResponse['latestT
     launchpad_market: token.launchpad_market ?? token.market ?? token.marketAddress,
     quote_token_address: token.quote_token_address ?? token.quoteToken ?? token.quote_token ?? undefined,
     createdAt: token.createdAt ?? token.first_seen_at ?? new Date().toISOString(),
-    status: (token.status ?? token.market_state) as DiscoverySummaryResponse['latestTokens'][number]['status'],
+    status,
     priceNative: token.priceNative ?? token.first_trade_price_native ?? undefined,
     change5m: token.change5m ?? undefined,
     change1h: token.change1h ?? undefined,
     change24h: token.change24h ?? undefined,
-    volume24h: typeof token.volume24h === 'number' ? token.volume24h.toString() : token.volume24h
+    volume24h: normalizeVolume(volumeSource),
+    trades24h: normalizeTradesCount(tradesSource)
   };
 }
 
@@ -146,17 +170,20 @@ export async function fetchDiscoverySnapshot(): Promise<DiscoverySummaryResponse
     const raw = (await res.json()) as SnapshotPayload;
     const latestTokens = Array.isArray(raw.latestTokens) ? raw.latestTokens.map(normalizeToken) : [];
     const mostActiveTokens = Array.isArray(raw.mostActiveTokens)
-      ? raw.mostActiveTokens.map((token: SnapshotToken) => {
-          const normalized = normalizeToken(token) as typeof latestTokens[number] & { trades24h?: number };
-          if (!normalized.volume24h && typeof token.trade_count === 'number') {
-            normalized.volume24h = token.trade_count.toString();
-          }
-          if (normalized.trades24h === undefined) {
-            normalized.trades24h = typeof token.trade_count === 'number' ? token.trade_count : 0;
-          }
-          return normalized;
+      ? raw.mostActiveTokens.map((token) => {
+          const normalized = normalizeToken(token);
+          const volumeSource = token.volume24h ?? token.volume_24h ?? token.volume ?? normalized.volume24h;
+          const tradesSource = token.trades24h ?? token.trade_count ?? token.trades ?? normalized.trades24h;
+          return {
+            ...normalized,
+            volume24h: normalizeVolume(volumeSource),
+            trades24h: normalizeTradesCount(tradesSource)
+          };
         })
-      : latestTokens.map((token) => ({ ...(token as typeof latestTokens[number]), trades24h: (token as { trades24h?: number }).trades24h ?? 0 }));
+      : latestTokens.map((token) => ({
+          ...token,
+          trades24h: normalizeTradesCount(token.trades24h)
+        }));
     const snapshot: DiscoverySummaryResponse = {
       generatedAt: raw.generatedAt ?? new Date().toISOString(),
       chain: raw.chain ?? 'unknown',
@@ -173,7 +200,6 @@ export async function fetchDiscoverySnapshot(): Promise<DiscoverySummaryResponse
   }
 }
 
-type BaseTradeField = string | null | undefined;
 
 export async function getTokenSummaryFromSnapshot(tokenId: string): Promise<TokenSummaryResponse> {
   if (!cachedSnapshot) {
