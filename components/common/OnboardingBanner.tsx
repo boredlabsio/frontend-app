@@ -11,7 +11,7 @@ export default function OnboardingBanner() {
         Connect a Sepolia wallet, buy any launch token, and your leaderboard row plus claim progress will unlock here.
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
-        <Link href="/launch/sample-token" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900">
+        <Link href="/discover" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900">
           Make first trade
         </Link>
         <Link href="/rewards/leaderboard" className="rounded-full border border-white/30 px-4 py-2 text-sm text-white">

@@ -25,7 +25,7 @@ export default function Home() {
           badges every week.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href="/launch/sample-token" className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-900">
+          <Link href="/discover" className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-900">
             View launches
           </Link>
           <Link href="/rewards/leaderboard" className="rounded-full border border-white/40 px-5 py-2 text-sm text-white">
@@ -49,7 +49,7 @@ export default function Home() {
           <p className="text-xs uppercase tracking-wide text-white/60">Featured launch</p>
           <h2 className="mt-2 text-xl font-semibold">LaunchToken</h2>
           <p className="text-sm text-white/60">Price: 0.017 ETH · +12% 24h</p>
-          <Link href="/launch/sample-token" className="mt-4 inline-block rounded-full bg-white/10 px-4 py-2 text-sm">
+          <Link href="/discover" className="mt-4 inline-block rounded-full bg-white/10 px-4 py-2 text-sm">
             Trade now
           </Link>
         </div>
