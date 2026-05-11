@@ -118,7 +118,7 @@ export default function DiscoverPage() {
           </Section>
 
           <Section title="Recently traded" description="Latest buys and sells across all tokens">
-            <TradesFeed trades={recentlyTraded} />
+            <TradesFeed trades={recentlyTraded} latestTokens={latestTokens} />
           </Section>
 
           <Section title="Watchlist" description="Pinned pairs coming soon">
@@ -242,12 +242,27 @@ function TokenGrid({ tokens, emptyLabel }: { tokens: TokenCard[]; emptyLabel: st
   );
 }
 
-function TradesFeed({ trades }: { trades: RecentTradesResponse }) {
+function resolveTradeLaunchHref(trade: RecentTradesResponse[number], latestTokens: BaseToken[]) {
+  const direct = toLaunchHref(trade.token_id);
+  if (direct) return { href: direct, source: 'token_id' as const };
+
+  const tokenAddress = String(trade.token_address || '').toLowerCase();
+  if (!tokenAddress) return { href: null, source: 'missing' as const };
+
+  const matched = latestTokens.find((token) => String(token.token_address || '').toLowerCase() === tokenAddress);
+  const mapped = toLaunchHref(matched?.token_id);
+  if (mapped) return { href: mapped, source: 'token_address_map' as const };
+
+  return { href: null, source: 'missing' as const };
+}
+
+function TradesFeed({ trades, latestTokens }: { trades: RecentTradesResponse; latestTokens: BaseToken[] }) {
   if (!trades?.length) return <EmptyCard label="No trades yet." />;
   return (
     <div className="space-y-3">
       {trades.map((trade) => {
-        const tradeHref = toLaunchHref(trade.token_id);
+        const resolved = resolveTradeLaunchHref(trade, latestTokens);
+        const tradeHref = resolved.href;
         const rowClass = `flex flex-wrap items-center gap-4 rounded-3xl border border-white/10 bg-slate-900/60 p-4 text-sm text-white ${tradeHref ? '' : 'opacity-70 cursor-not-allowed'}`;
 
         if (!tradeHref) {
@@ -264,6 +279,12 @@ function TradesFeed({ trades }: { trades: RecentTradesResponse }) {
           <Link
             key={trade.tx_hash}
             href={tradeHref}
+            onClick={() => debugLog('DISCOVER_TRADE_CLICK', {
+              trade_token_id: trade.token_id,
+              trade_token_address: trade.token_address,
+              resolved_source: resolved.source,
+              final_href: tradeHref
+            })}
             className={rowClass}
           >
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${trade.direction === 'buy' ? 'bg-emerald-500/15 text-emerald-200' : 'bg-rose-500/15 text-rose-200'}`}>
