@@ -154,6 +154,13 @@ function Section({ title, description, children }: { title: string; description?
   );
 }
 
+function toLaunchHref(tokenId: unknown): string | null {
+  if (tokenId === undefined || tokenId === null) return null;
+  const normalized = String(tokenId).trim();
+  if (!normalized || normalized === 'undefined' || normalized === 'missing') return null;
+  return `/launch/${normalized}`;
+}
+
 function TokenGrid({ tokens, emptyLabel }: { tokens: TokenCard[]; emptyLabel: string }) {
   useEffect(() => {
     tokens.forEach((token) => debugLog('DISCOVERY TOKEN:', token));
@@ -166,8 +173,9 @@ function TokenGrid({ tokens, emptyLabel }: { tokens: TokenCard[]; emptyLabel: st
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {tokens.map((token) => {
-        const tokenId = token.token_id ? String(token.token_id) : '';
-        const tokenClickable = tokenId.length > 0;
+        const tokenHref = toLaunchHref(token.token_id);
+        const tokenId = tokenHref ? tokenHref.replace('/launch/', '') : '';
+        const tokenClickable = Boolean(tokenHref);
         const cardClass = `rounded-3xl border border-white/10 bg-slate-900/60 p-4 shadow-lg transition ${
           tokenClickable ? 'hover:-translate-y-0.5 hover:border-indigo-400/40' : 'opacity-70 cursor-not-allowed'
         } ${token.justTraded ? 'ring-1 ring-emerald-400/60 ring-offset-2 ring-offset-slate-900' : ''}`;
@@ -184,7 +192,7 @@ function TokenGrid({ tokens, emptyLabel }: { tokens: TokenCard[]; emptyLabel: st
         return (
           <Link
           key={`${tokenId}-${token.token_address}`}
-          href={`/launch/${tokenId}`}
+          href={tokenHref!}
           onClick={() => debugLog('DISCOVER_CLICK_TOKEN', { token_id: tokenId, name: token.name, launchpad_market: token.launchpad_market })}
           className={cardClass}
         >
@@ -238,25 +246,40 @@ function TradesFeed({ trades }: { trades: RecentTradesResponse }) {
   if (!trades?.length) return <EmptyCard label="No trades yet." />;
   return (
     <div className="space-y-3">
-      {trades.map((trade) => (
-        <Link
-          key={trade.tx_hash}
-          href={`/launch/${trade.token_id}`}
-          className="flex flex-wrap items-center gap-4 rounded-3xl border border-white/10 bg-slate-900/60 p-4 text-sm text-white"
-        >
-          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${trade.direction === 'buy' ? 'bg-emerald-500/15 text-emerald-200' : 'bg-rose-500/15 text-rose-200'}`}>
-            {trade.direction.toUpperCase()}
-          </span>
-          <div className="flex flex-col">
-            <span className="font-semibold">{trade.token_name || `Token #${trade.token_id}`}</span>
-            <span className="text-white/60">{resolveQuoteSymbol(trade.quote_token_address)}</span>
-          </div>
-          <span className="text-xs text-white/60">{timeAgo(trade.timestamp)}</span>
-          <span className="text-xs text-white/60">{formatTradeAmount(trade)}</span>
-          <span className="text-xs text-white/60">Price {formatPrice(trade.execution_price_native)}</span>
-          <span className="text-xs text-white/60">Tx {shortHash(trade.tx_hash)}</span>
-        </Link>
-      ))}
+      {trades.map((trade) => {
+        const tradeHref = toLaunchHref(trade.token_id);
+        const rowClass = `flex flex-wrap items-center gap-4 rounded-3xl border border-white/10 bg-slate-900/60 p-4 text-sm text-white ${tradeHref ? '' : 'opacity-70 cursor-not-allowed'}`;
+
+        if (!tradeHref) {
+          return (
+            <div key={trade.tx_hash} className={rowClass}>
+              <span className="rounded-full bg-rose-500/15 px-3 py-1 text-xs font-semibold text-rose-200">TOKEN ID MISSING</span>
+              <span className="text-xs text-rose-300">token id missing</span>
+              <span className="text-xs text-white/60">Tx {shortHash(trade.tx_hash)}</span>
+            </div>
+          );
+        }
+
+        return (
+          <Link
+            key={trade.tx_hash}
+            href={tradeHref}
+            className={rowClass}
+          >
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${trade.direction === 'buy' ? 'bg-emerald-500/15 text-emerald-200' : 'bg-rose-500/15 text-rose-200'}`}>
+              {trade.direction.toUpperCase()}
+            </span>
+            <div className="flex flex-col">
+              <span className="font-semibold">{trade.token_name || `Token #${String(trade.token_id)}`}</span>
+              <span className="text-white/60">{resolveQuoteSymbol(trade.quote_token_address)}</span>
+            </div>
+            <span className="text-xs text-white/60">{timeAgo(trade.timestamp)}</span>
+            <span className="text-xs text-white/60">{formatTradeAmount(trade)}</span>
+            <span className="text-xs text-white/60">Price {formatPrice(trade.execution_price_native)}</span>
+            <span className="text-xs text-white/60">Tx {shortHash(trade.tx_hash)}</span>
+          </Link>
+        );
+      })}
     </div>
   );
 }
