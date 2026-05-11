@@ -2,6 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePublicClient, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import type { Hash } from 'viem';
@@ -51,7 +52,10 @@ type ActivityItem = {
 };
 
 export default function LaunchDetail({ params }: { params: { id: string } }) {
-  const routeTokenId = params?.id && params.id !== 'undefined' ? params.id : '';
+  const routeParams = useParams<{ id?: string | string[] }>();
+  const rawParam = routeParams?.id ?? params?.id;
+  const normalizedParam = Array.isArray(rawParam) ? rawParam[0] : String(rawParam || '');
+  const routeTokenId = normalizedParam && normalizedParam !== 'undefined' && normalizedParam !== 'missing' ? normalizedParam : '';
   const wallet = useWallet();
   const queryClient = useQueryClient();
   const summary = useTokenSummary(routeTokenId || "missing");
@@ -62,10 +66,11 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
   const [fallbackTimestamp] = useState(() => Date.now());
 
   useEffect(() => {
+    debugLog('LAUNCH_ROUTE_ID', { rawParam, routeTokenId });
     if (summary.data) {
       debugLog('TOKEN DETAIL:', summary.data);
     }
-  }, [summary.data]);
+  }, [rawParam, routeTokenId, summary.data]);
 
   const discoveryToken = useMemo(() => {
     if (!discovery.data) return null;
