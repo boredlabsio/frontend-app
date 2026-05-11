@@ -334,11 +334,12 @@ function enrichToken(token: BaseToken, recentTradeMap: Set<string>): TokenCard {
   const tradeCount = 'trades24h' in token && typeof token.trades24h === 'number' ? token.trades24h : parseInt(token.volume24h ?? '0', 10) || 0;
   const createdAtValue = token.createdAt ? Date.parse(token.createdAt) : Date.now();
   const ageMs = Date.now() - createdAtValue;
-  const isHot = tradeCount >= 10 || volumeValue >= 5;
-  const isNew = ageMs <= NEW_WINDOW_MS;
-  const isMoving = Math.abs(change5mValue) >= 2 || Math.abs(change1hValue) >= 5;
-  const nearMigration = token.status === 'migration_pending';
-  const volumeSpike = volumeValue >= 10 && change24hValue > 5;
+  const recentlyActive = recentTradeMap.has(token.token_id);
+  const isHot = tradeCount >= 10 || volumeValue >= 5 || recentlyActive;
+  const isNew = ageMs <= NEW_WINDOW_MS || !token.createdAt;
+  const isMoving = Math.abs(change5mValue) >= 2 || Math.abs(change1hValue) >= 5 || recentlyActive;
+  const nearMigration = token.status === 'migration_pending' || (Boolean(token.launchpad_market) && token.status !== 'migrated');
+  const volumeSpike = volumeValue >= 10 && (change24hValue > 5 || recentlyActive);
 
   return {
     ...token,
@@ -353,7 +354,7 @@ function enrichToken(token: BaseToken, recentTradeMap: Set<string>): TokenCard {
     isMoving,
     nearMigration,
     volumeSpike,
-    justTraded: recentTradeMap.has(token.token_id)
+    justTraded: recentlyActive
   } as TokenCard;
 }
 
