@@ -51,10 +51,11 @@ type ActivityItem = {
 };
 
 export default function LaunchDetail({ params }: { params: { id: string } }) {
+  const routeTokenId = params?.id && params.id !== 'undefined' ? params.id : '';
   const wallet = useWallet();
   const queryClient = useQueryClient();
-  const summary = useTokenSummary(params.id);
-  const trades = useRecentTrades(params.id);
+  const summary = useTokenSummary(routeTokenId || "missing");
+  const trades = useRecentTrades(routeTokenId || "missing");
   const discovery = useDiscoverySummary();
   const [lastRewardEstimate, setLastRewardEstimate] = useState<RewardSignal | null>(null);
   const [localActivity, setLocalActivity] = useState<ActivityItem[]>([]);
@@ -69,11 +70,11 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
   const discoveryToken = useMemo(() => {
     if (!discovery.data) return null;
     return (
-      discovery.data.latestTokens.find((token) => token.token_id === params.id) ||
-      discovery.data.mostActiveTokens.find((token) => token.token_id === params.id) ||
+      discovery.data.latestTokens.find((token) => token.token_id === routeTokenId) ||
+      discovery.data.mostActiveTokens.find((token) => token.token_id === routeTokenId) ||
       null
     );
-  }, [discovery.data, params.id]);
+  }, [discovery.data, routeTokenId]);
 
   const info = summary.data;
   const dataSource = getSourceTag(info) ?? 'mock';
@@ -104,7 +105,7 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
     discoveryToken?.token_address ||
     null;
   const marketReady = Boolean(marketAddress);
-  const displayName = info?.name || discoveryToken?.name || `Token #${params.id}`;
+  const displayName = info?.name || discoveryToken?.name || `Token #${routeTokenId || "missing"}`;
   const displaySymbol = info?.symbol || discoveryToken?.symbol || '—';
   const effectiveTokenSymbol = displaySymbol === '—' ? 'TOKEN' : displaySymbol;
   const displayPrice = info?.priceNative || discoveryToken?.priceNative || '—';
@@ -166,23 +167,26 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
         const next = prev ? [trade, ...prev] : [trade];
         return next.slice(0, 50);
       });
-      queryClient.setQueryData<RecentTradesResponse>(['recentTrades', params.id], (prev) => {
+      queryClient.setQueryData<RecentTradesResponse>(['recentTrades', routeTokenId], (prev) => {
         const next = prev ? [trade, ...prev] : [trade];
         return next.slice(0, 50);
       });
     },
-    [params.id, queryClient]
+    [routeTokenId, queryClient]
   );
 
   return (
     <div className="space-y-6">
+      {!routeTokenId && (
+        <NextActionHint message="token id missing" tone="error" />
+      )}
       <Link href="/discover" className="text-sm text-white/60 hover:underline">
         ← Back to discovery
       </Link>
 
       <header className="flex flex-col gap-3 rounded-3xl border border-white/10 bg-slate-900/60 p-6 shadow-lg md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-sm text-white/60">Token #{params.id}</p>
+          <p className="text-sm text-white/60">Token #{routeTokenId || "missing"}</p>
           <h1 className="text-3xl font-semibold text-white">{displayName}</h1>
           <p className="text-white/70">
             {displaySymbol} · {displayTokenAddress ? shortAddress(displayTokenAddress) : 'address pending'}
@@ -231,7 +235,7 @@ export default function LaunchDetail({ params }: { params: { id: string } }) {
       <NextActionHint message={rewardOpportunityMessage} tone="info" />
 
       <TradePanels
-        tokenId={params.id}
+        tokenId={routeTokenId || "missing"}
         wallet={wallet}
         marketAddress={marketAddress}
         marketReady={marketReady}

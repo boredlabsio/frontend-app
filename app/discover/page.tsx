@@ -165,13 +165,28 @@ function TokenGrid({ tokens, emptyLabel }: { tokens: TokenCard[]; emptyLabel: st
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {tokens.map((token) => (
-        <Link
-          key={`${token.token_id}-${token.token_address}`}
-          href={`/launch/${token.token_id}`}
-          className={`rounded-3xl border border-white/10 bg-slate-900/60 p-4 shadow-lg transition hover:-translate-y-0.5 hover:border-indigo-400/40 ${
-            token.justTraded ? 'ring-1 ring-emerald-400/60 ring-offset-2 ring-offset-slate-900' : ''
-          }`}
+      {tokens.map((token) => {
+        const tokenId = token.token_id ? String(token.token_id) : '';
+        const tokenClickable = tokenId.length > 0;
+        const cardClass = `rounded-3xl border border-white/10 bg-slate-900/60 p-4 shadow-lg transition ${
+          tokenClickable ? 'hover:-translate-y-0.5 hover:border-indigo-400/40' : 'opacity-70 cursor-not-allowed'
+        } ${token.justTraded ? 'ring-1 ring-emerald-400/60 ring-offset-2 ring-offset-slate-900' : ''}`;
+
+        if (!tokenClickable) {
+          return (
+            <div key={`missing-${token.name}-${token.token_address}`} className={cardClass}>
+              <p className="text-xs text-rose-300">token id missing</p>
+              <p className="mt-1 text-sm text-white/80">{token.name || 'Unknown token'}</p>
+            </div>
+          );
+        }
+
+        return (
+          <Link
+          key={`${tokenId}-${token.token_address}`}
+          href={`/launch/${tokenId}`}
+          onClick={() => debugLog('DISCOVER_CLICK_TOKEN', { token_id: tokenId, name: token.name, launchpad_market: token.launchpad_market })}
+          className={cardClass}
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -212,8 +227,9 @@ function TokenGrid({ tokens, emptyLabel }: { tokens: TokenCard[]; emptyLabel: st
             <StatusBadge status={token.status} />
             {token.volumeSpike && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-200">Volume spike</span>}
           </div>
-        </Link>
-      ))}
+          </Link>
+        );
+      })}
     </div>
   );
 }
