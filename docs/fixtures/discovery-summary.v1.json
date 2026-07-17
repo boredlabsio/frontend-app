@@ -1,0 +1,52 @@
+{
+  "$schema": "https://meraki.dev/schema/DiscoverySummaryV1.json",
+  "schema": "DiscoverySummaryV1",
+  "generatedAt": "2026-07-17T16:30:00.000Z",
+  "stats": {
+    "hotCount": 1,
+    "movingCount": 1,
+    "migrationReadyCount": 0
+  },
+  "latestTokens": [
+    {
+      "schema": "TokenSummaryV1",
+      "token_id": "1",
+      "token_address": "0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5",
+      "launchpad_market": "0x9399f30f694D6265fbe097cdebb851a4bf1b1eae",
+      "symbol": "MER",
+      "name": "Meraki",
+      "status": "curve_live",
+      "priceNative": "0.0042",
+      "volume24h": "12.4",
+      "trades24h": 28,
+      "last_trade_time": "2026-07-17T16:25:30Z",
+      "bonding_threshold": "25",
+      "bonding_progress": 0.42,
+      "migration_status": "not_ready"
+    }
+  ],
+  "mostActiveTokens": [],
+  "recentTrades": [
+    {
+      "schema": "RecentTradeV1",
+      "trade_id": "11155111:0x9037ebac21c4c240520e5f083d2855f550e8d86a5518bbb5c8be4a8eb81fa6fa:0",
+      "token_id": "1",
+      "token_address": "0x93Ce31301D1278cb55b810a1cDE0EB81308FDaC5",
+      "token_name": "Meraki",
+      "direction": "buy",
+      "stage": "bonding_curve",
+      "quote_token_address": "0xe73dd6757d76df9Cbe13710D2AdaBe3Ffa5be59A",
+      "quote_symbol": "ETH",
+      "quote_amount": "0.25",
+      "base_amount": "1200",
+      "execution_price_native": "0.000208",
+      "tx_hash": "0x9037ebac21c4c240520e5f083d2855f550e8d86a5518bbb5c8be4a8eb81fa6fa",
+      "timestamp": "2026-07-17T16:25:30Z"
+    }
+  ],
+  "__source": {
+    "chain_id": 11155111,
+    "source": "api",
+    "fetched_at": "2026-07-17T16:30:00.000Z"
+  }
+}

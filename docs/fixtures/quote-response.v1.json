@@ -1,0 +1,14 @@
+{
+  "$schema": "https://meraki.dev/schema/QuoteResponseV1.json",
+  "schema": "QuoteResponseV1",
+  "quote_id": "quote_01J2MDJ04H8P0RFXJXK6BHFN9R",
+  "token_id": "1",
+  "direction": "buy",
+  "amount": "500",
+  "quote_amount": "0.42",
+  "expiresAt": "2026-07-17T16:31:00Z",
+  "source": "bonding_curve",
+  "market_address": "0x9399f30f694D6265fbe097cdebb851a4bf1b1eae",
+  "gas_estimate": "210000",
+  "status": "fresh"
+}
