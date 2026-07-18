@@ -24,6 +24,14 @@ function normalizeApiBase(rawValue: string | undefined) {
   }
 }
 
+function parseAddressAllowlist(value: string | undefined) {
+  if (!value) return [] as string[];
+  return value
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => /^0x[0-9a-f]{40}$/.test(item));
+}
+
 const apiBase = normalizeApiBase(process.env.NEXT_PUBLIC_API_BASE);
 
 export const env = {
@@ -37,5 +45,6 @@ export const env = {
   buyTestnetOnly: parsePublicBoolean(process.env.NEXT_PUBLIC_BUY_TESTNET_ONLY, true),
   buyChainId: parsePositiveInt(process.env.NEXT_PUBLIC_BUY_CHAIN_ID, 11155111),
   buyMaxNativeAmount: process.env.NEXT_PUBLIC_BUY_MAX_NATIVE_AMOUNT || '10000000000000000',
+  buyAllowedWallets: parseAddressAllowlist(process.env.NEXT_PUBLIC_BUY_ALLOWED_WALLETS),
   sellEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_FEATURE_ENABLE_SELL, false)
 };
