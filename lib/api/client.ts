@@ -1,33 +1,113 @@
-import type { LeaderboardResponse, UserRewardsResponse, ActivityResponse, ClaimableResponse, DiscoverySummaryResponse, TokenSummaryResponse, RecentTradesResponse } from '@/lib/api/types';
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+import type { z } from 'zod';
+import type { LeaderboardResponse, UserRewardsResponse, ActivityResponse, ClaimableResponse, DiscoverySummaryResponse, TokenSummaryResponse, RecentTradesResponse, ApiErrorResponse, DataErrorCategory } from '@/lib/api/types';
+import { apiErrorSchema, discoverySummarySchema, tokenSummarySchema, tokenTradesResponseSchema } from '@/lib/api/generated/contracts';
+import { env } from '@/lib/config/env';
 
-export const apiAvailable = Boolean(API_BASE);
+export const apiAvailable = env.liveDataEnabled && env.apiBaseValid;
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API_BASE) throw new Error('API base URL not configured');
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {})
-    },
-    cache: 'no-store'
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `API request failed (${res.status})`);
+export class ApiClientError extends Error {
+  category: DataErrorCategory;
+  status?: number;
+  apiError?: ApiErrorResponse;
+
+  constructor(category: DataErrorCategory, message: string, options: { status?: number; apiError?: ApiErrorResponse } = {}) {
+    super(message);
+    this.name = 'ApiClientError';
+    this.category = category;
+    this.status = options.status;
+    this.apiError = options.apiError;
   }
-  return res.json() as Promise<T>;
+}
+
+export function isApiClientError(value: unknown): value is ApiClientError {
+  return value instanceof ApiClientError;
+}
+
+function buildUrl(path: string) {
+  if (!env.liveDataEnabled) throw new ApiClientError('disabled', 'Live data is disabled');
+  if (!env.apiBaseValid || !env.apiBase) throw new ApiClientError('misconfigured', 'Live API base URL is missing or invalid');
+  if (!path.startsWith('/')) throw new ApiClientError('misconfigured', 'API path must be absolute');
+  return new URL(path, `${env.apiBase}/`).toString();
+}
+
+function mergeAbortSignals(local: AbortSignal, external?: AbortSignal) {
+  if (!external) return local;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  local.addEventListener('abort', abort, { once: true });
+  external.addEventListener('abort', abort, { once: true });
+  return controller.signal;
+}
+
+async function requestJson(path: string, init?: RequestInit): Promise<unknown> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), env.apiTimeoutMs);
+  try {
+    const res = await fetch(buildUrl(path), {
+      ...init,
+      headers: {
+        Accept: 'application/json',
+        ...(init?.headers ?? {})
+      },
+      signal: mergeAbortSignals(controller.signal, init?.signal ?? undefined),
+      cache: 'no-store'
+    });
+
+    const rawText = await res.text();
+    const json = rawText ? JSON.parse(rawText) : null;
+
+    if (!res.ok) {
+      const apiError = apiErrorSchema.safeParse(json);
+      const parsedError = apiError.success ? apiError.data : undefined;
+      if (res.status === 404) {
+        throw new ApiClientError('not_found', parsedError?.message ?? 'Resource not found', { status: res.status, apiError: parsedError });
+      }
+      if (res.status >= 500) {
+        throw new ApiClientError('server_error', parsedError?.message ?? 'Live API server error', { status: res.status, apiError: parsedError });
+      }
+      throw new ApiClientError('unavailable', parsedError?.message ?? `Live API request failed (${res.status})`, { status: res.status, apiError: parsedError });
+    }
+
+    return json;
+  } catch (error) {
+    if (isApiClientError(error)) throw error;
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiClientError(init?.signal?.aborted ? 'aborted' : 'timeout', init?.signal?.aborted ? 'Request aborted' : 'Live API request timed out');
+    }
+    if (error instanceof SyntaxError) {
+      throw new ApiClientError('invalid_response', 'Live API returned invalid JSON');
+    }
+    throw new ApiClientError('unavailable', 'Live API is unavailable');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function requestValidated<T>(path: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
+  const json = await requestJson(path, init);
+  const parsed = schema.safeParse(json);
+  if (!parsed.success) {
+    throw new ApiClientError('invalid_response', 'Live API response failed V1 validation');
+  }
+  return parsed.data;
+}
+
+async function requestLegacy<T>(path: string, init?: RequestInit): Promise<T> {
+  const json = await requestJson(path, init);
+  return json as T;
 }
 
 export const api = {
-  getLeaderboard: (windowKey: 'all' | '7d' | '24h') => request<LeaderboardResponse>(`/leaderboard?window=${windowKey}`),
-  getUserRewards: (address: string) => request<UserRewardsResponse>(`/user/${address}`),
-  getActivity: (address: string) => request<ActivityResponse>(`/user/${address}/activity`),
-  getClaimable: (address: string) => request<ClaimableResponse>(`/claim/${address}`),
-  getDiscoverySummary: () => request<DiscoverySummaryResponse>('/discovery/summary'),
-  getTokenSummary: (tokenId: string) => request<TokenSummaryResponse>(`/tokens/${tokenId}/summary`),
-  getRecentTrades: (tokenId?: string) => request<RecentTradesResponse>(tokenId ? `/tokens/${tokenId}/trades` : '/trades/recent'),
-  getQuoteBuy: (tokenId: string, amountInEth: string) => request<{ amountOut: string }>(`/tokens/${tokenId}/quote/buy?amount=${amountInEth}`),
-  getQuoteSell: (tokenId: string, amountInToken: string) => request<{ amountOut: string }>(`/tokens/${tokenId}/quote/sell?amount=${amountInToken}`)
+  getLeaderboard: (windowKey: 'all' | '7d' | '24h') => requestLegacy<LeaderboardResponse>(`/leaderboard?window=${encodeURIComponent(windowKey)}`),
+  getUserRewards: (address: string) => requestLegacy<UserRewardsResponse>(`/user/${encodeURIComponent(address)}`),
+  getActivity: (address: string) => requestLegacy<ActivityResponse>(`/user/${encodeURIComponent(address)}/activity`),
+  getClaimable: (address: string) => requestLegacy<ClaimableResponse>(`/claim/${encodeURIComponent(address)}`),
+  getDiscoverySummary: () => requestValidated<DiscoverySummaryResponse>('/discovery/summary', discoverySummarySchema),
+  getTokenSummary: (tokenId: string) => requestValidated<TokenSummaryResponse>(`/tokens/${encodeURIComponent(tokenId)}`, tokenSummarySchema),
+  getRecentTrades: async (tokenId: string): Promise<RecentTradesResponse> => {
+    const response = await requestValidated(`/tokens/${encodeURIComponent(tokenId)}/trades`, tokenTradesResponseSchema);
+    return response.trades;
+  },
+  getQuoteBuy: (tokenId: string, amountInEth: string) => requestLegacy<{ amountOut: string }>(`/tokens/${encodeURIComponent(tokenId)}/quote/buy?amount=${encodeURIComponent(amountInEth)}`),
+  getQuoteSell: (tokenId: string, amountInToken: string) => requestLegacy<{ amountOut: string }>(`/tokens/${encodeURIComponent(tokenId)}/quote/sell?amount=${encodeURIComponent(amountInToken)}`)
 };

@@ -1,6 +1,26 @@
 import type { Hex } from 'viem';
+import type { DiscoverySummaryV1, RecentTradeV1, TokenSummaryV1, TokenTradesResponseV1, ApiErrorV1 } from '@/lib/api/generated/contracts';
 
-export type DataSource = 'api' | 'snapshot' | 'mock';
+export type DataSource = 'live' | 'snapshot' | 'mock';
+
+export type SourceTagged<T> = T & { __source?: DataSource };
+
+export type DiscoverySummaryResponse = DiscoverySummaryV1;
+export type TokenSummaryResponse = TokenSummaryV1;
+export type RecentTradeResponse = RecentTradeV1;
+export type TokenTradesResponse = TokenTradesResponseV1;
+export type ApiErrorResponse = ApiErrorV1;
+export type RecentTradesResponse = RecentTradeV1[];
+
+export type DataErrorCategory =
+  | 'disabled'
+  | 'misconfigured'
+  | 'timeout'
+  | 'unavailable'
+  | 'invalid_response'
+  | 'not_found'
+  | 'server_error'
+  | 'aborted';
 
 export type LeaderboardEntryApi = {
   rank: number;
@@ -67,78 +87,3 @@ export type ClaimableResponse = {
   mock: boolean;
   serverTime?: string;
 };
-
-export type DiscoverySummaryResponse = {
-  generatedAt: string;
-  chain: string;
-  latestTokens: Array<{
-    token_id: string;
-    name: string;
-    symbol: string;
-    token_address: string;
-    launchpad_market?: string;
-    quote_token_address?: string;
-    createdAt: string;
-    status?: 'curve' | 'migration_pending' | 'migrated';
-    priceNative?: string;
-    change5m?: string;
-    change1h?: string;
-    change24h?: string;
-    volume24h: string;
-    trades24h?: number;
-  }>;
-  mostActiveTokens: Array<{
-    token_id: string;
-    name: string;
-    symbol: string;
-    token_address: string;
-    launchpad_market?: string;
-    quote_token_address?: string;
-    volume24h: string;
-    trades24h: number;
-    priceNative?: string;
-    change24h?: string;
-    status?: 'curve' | 'migration_pending' | 'migrated';
-  }>;
-  recentTrades: Array<{
-    token_id: string;
-    token_name?: string;
-    token_symbol?: string;
-    direction: 'buy' | 'sell';
-    tx_hash: string;
-    block_number: string;
-    native_in: string | null;
-    native_out: string | null;
-    token_in: string | null;
-    token_out: string | null;
-    token_address: string;
-    quote_token_address?: string;
-    execution_price_native: string;
-    execution_price_usd?: string;
-    wallet?: string;
-    timestamp?: string;
-  }>;
-};
-
-export type TokenSummaryResponse = {
-  tokenId: string;
-  name: string;
-  symbol: string;
-  image: string | null;
-  description: string | null;
-  priceNative: string;
-  marketCapNative: string;
-  supply: string;
-  remaining: string;
-  volume24h: string;
-  trades24h: number;
-  token_address?: string;
-  marketAddress?: string;
-  tokenAddress?: string;
-  quoteTokenAddress?: string;
-  creatorAddress?: string | null;
-  tokenDecimals?: number;
-  feeBps?: number;
-};
-
-export type RecentTradesResponse = DiscoverySummaryResponse['recentTrades'];

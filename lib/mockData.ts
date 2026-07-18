@@ -46,6 +46,7 @@ export const leaderboardMock: LeaderboardEntry[] = [
 ];
 
 import type { DiscoverySummaryResponse, TokenSummaryResponse, RecentTradesResponse } from '@/lib/api/types';
+import { discoverySummarySchema, tokenSummarySchema, recentTradeSchema } from '@/lib/api/generated/contracts';
 
 const mockCatalog = [
   {
@@ -56,7 +57,7 @@ const mockCatalog = [
     marketAddress: '0x9399f30f694D6265fbe097CdeBB851a4Bf1b1eae',
     quoteTokenAddress: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
     createdAt: new Date().toISOString(),
-    status: 'curve' as const,
+    status: 'curve_live' as const,
     priceNative: '0.0000275',
     change5m: '+0.8%',
     change1h: '+6.2%',
@@ -85,91 +86,96 @@ const mockCatalog = [
 export const tokenSummaryMocks: Record<string, TokenSummaryResponse> = mockCatalog.reduce(
   (acc, token) => {
     acc[token.tokenId] = {
-      tokenId: token.tokenId,
+      schema: 'TokenSummaryV1',
+      token_id: token.tokenId,
       name: token.name,
       symbol: token.symbol,
-      image: null,
-      description: `${token.name} mock summary`,
       priceNative: token.priceNative,
-      marketCapNative: (Number(token.priceNative) * 1000000).toFixed(2),
-      supply: '1000000',
-      remaining: '420000',
       volume24h: token.volume24h,
       trades24h: token.trades24h,
-      marketAddress: token.marketAddress,
-      tokenAddress: token.tokenAddress,
       token_address: token.tokenAddress,
-      quoteTokenAddress: token.quoteTokenAddress,
-      quote_token_address: token.quoteTokenAddress,
-      tokenDecimals: 18,
-      feeBps: 100
+      launchpad_market: token.marketAddress,
+      status: token.status,
+      last_trade_time: token.createdAt,
+      bonding_threshold: '25',
+      bonding_progress: token.status === 'migrated' ? 1 : 0.42,
+      migration_status: token.status === 'migrated' ? 'migrated' : 'not_ready'
     } as TokenSummaryResponse;
     return acc;
   },
   {} as Record<string, TokenSummaryResponse>
 );
 
-export function getMockTokenSummary(tokenId: string): TokenSummaryResponse {
+export function getMockTokenSummary(tokenId: string): TokenSummaryResponse | null {
   if (tokenSummaryMocks[tokenId]) return tokenSummaryMocks[tokenId];
-  console.warn('[mock] missing token summary for id', tokenId, 'falling back to first mock');
-  const fallbackKey = Object.keys(tokenSummaryMocks)[0];
-  return tokenSummaryMocks[fallbackKey];
+  console.warn('[mock] missing token summary for id', tokenId);
+  return null;
 }
 
 const latestTokens = mockCatalog.map((token) => ({
+  schema: 'TokenSummaryV1' as const,
   token_id: token.tokenId,
   name: token.name,
   symbol: token.symbol,
   token_address: token.tokenAddress,
   launchpad_market: token.marketAddress,
-  quote_token_address: token.quoteTokenAddress,
-  createdAt: token.createdAt,
   status: token.status,
   priceNative: token.priceNative,
-  change5m: token.change5m,
-  change1h: token.change1h,
-  change24h: token.change24h,
-  volume24h: token.volume24h
+  volume24h: token.volume24h,
+  trades24h: token.trades24h,
+  last_trade_time: token.createdAt,
+  bonding_threshold: '25',
+  bonding_progress: token.status === 'migrated' ? 1 : 0.42,
+  migration_status: token.status === 'migrated' ? 'migrated' : 'not_ready'
 }));
 
 const mostActiveTokens = mockCatalog.map((token) => ({
+  schema: 'TokenSummaryV1' as const,
   token_id: token.tokenId,
   name: token.name,
   symbol: token.symbol,
   token_address: token.tokenAddress,
   launchpad_market: token.marketAddress,
-  quote_token_address: token.quoteTokenAddress,
   volume24h: (Number(token.volume24h) * 1.5).toFixed(1),
   trades24h: token.trades24h,
   priceNative: token.priceNative,
-  change24h: token.change24h,
-  status: token.status
+  status: token.status,
+  last_trade_time: token.createdAt,
+  bonding_threshold: '25',
+  bonding_progress: token.status === 'migrated' ? 1 : 0.42,
+  migration_status: token.status === 'migrated' ? 'migrated' : 'not_ready'
 }));
 
-export const summaryMock: DiscoverySummaryResponse = {
+export const summaryMock = discoverySummarySchema.parse({
+  schema: 'DiscoverySummaryV1',
   generatedAt: new Date().toISOString(),
-  chain: 'sepolia',
   latestTokens,
   mostActiveTokens,
   recentTrades: mockCatalog.map((token, index) => ({
+    schema: 'RecentTradeV1',
+    trade_id: `mock:${token.tokenId}:${index}`,
     token_id: token.tokenId,
     token_name: token.name,
-    token_symbol: token.symbol,
     direction: index % 2 === 0 ? ('buy' as const) : ('sell' as const),
+    stage: 'bonding_curve' as const,
     tx_hash: index % 2 === 0 ? '0x123' : '0x456',
-    block_number: String(index),
-    native_in: index % 2 === 0 ? '10000000000000000' : null,
-    native_out: index % 2 === 0 ? null : '25000000000000000',
-    token_in: index % 2 === 0 ? null : '250000000000',
-    token_out: index % 2 === 0 ? '100000000000' : null,
     token_address: token.tokenAddress,
     quote_token_address: token.quoteTokenAddress,
+    quote_symbol: 'ETH',
+    quote_amount: index % 2 === 0 ? '0.01' : '0.025',
+    base_amount: index % 2 === 0 ? '100000000000' : '250000000000',
     execution_price_native: index % 2 === 0 ? '38976.5' : '40210.1',
-    execution_price_usd: index % 2 === 0 ? '0.01' : '0.02',
-    wallet: index % 2 === 0 ? '0x7bFe4b219b5eC65B0e3c183f78B967245c674673' : '0xf25bBA3104470e2001D19f2a3EfE6ece403beb5D',
     timestamp: index === 0 ? new Date().toISOString() : new Date(Date.now() - 1000 * 60 * 5).toISOString()
-  }))
-};
+  })),
+  stats: {
+    hotCount: 1,
+    movingCount: 1,
+    migrationReadyCount: 0
+  }
+}) satisfies DiscoverySummaryResponse;
+
+Object.values(tokenSummaryMocks).forEach((token) => tokenSummarySchema.parse(token));
+summaryMock.recentTrades.forEach((trade) => recentTradeSchema.parse(trade));
 
 export const tradesMock: RecentTradesResponse = summaryMock.recentTrades;
 

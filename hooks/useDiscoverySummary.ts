@@ -2,13 +2,14 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchDiscoverySummary } from '@/lib/api/discovery';
-import type { DiscoverySummaryResponse } from '@/lib/api/types';
+import type { DiscoverySummaryResponse, SourceTagged } from '@/lib/api/types';
 
 export function useDiscoverySummary() {
-  const query = useQuery<DiscoverySummaryResponse>({
+  const query = useQuery<SourceTagged<DiscoverySummaryResponse>>({
     queryKey: ['discoverySummary'],
     queryFn: fetchDiscoverySummary,
-    staleTime: 15_000
+    staleTime: 15_000,
+    retry: false
   });
 
   return query;

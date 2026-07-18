@@ -31,7 +31,7 @@ export default function ActivityFeedPage() {
         {activity.map((trade) => {
           const token = tokenMap.get(trade.token_id);
           const name = token?.name || trade.token_name || `Token #${trade.token_id}`;
-          const symbol = token?.symbol || trade.token_symbol || '—';
+          const symbol = token?.symbol || 'TKN';
           const directionTone = trade.direction === 'buy' ? 'text-emerald-200 bg-emerald-500/10' : 'text-rose-200 bg-rose-500/10';
           return (
             <div key={trade.tx_hash} className="rounded-3xl border border-white/10 bg-slate-900/60 p-4">
@@ -41,11 +41,11 @@ export default function ActivityFeedPage() {
                   {name} ({symbol})
                 </Link>
                 <span className="text-xs text-white/50">{timeAgo(trade.timestamp)}</span>
-                <span className="text-xs text-white/50">{formatAmount(trade.native_in)} ETH</span>
+                <span className="text-xs text-white/50">{trade.quote_amount} {trade.quote_symbol}</span>
                 <span className="text-xs text-white/50">Price {formatPrice(trade.execution_price_native)}</span>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-white/60">
-                {trade.wallet && <span>Trader {shortAddress(trade.wallet)}</span>}
+                <span>Token {shortAddress(trade.token_address)}</span>
                 <Link href={`https://sepolia.etherscan.io/tx/${trade.tx_hash}`} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:underline">
                   Tx {shortHash(trade.tx_hash)}
                 </Link>
@@ -58,12 +58,7 @@ export default function ActivityFeedPage() {
   );
 }
 
-function formatAmount(value?: string | null) {
-  if (!value) return '0';
-  return (Number(value) / 1e18).toFixed(4);
-}
-
-function formatPrice(value?: string) {
+function formatPrice(value?: string | null) {
   if (!value) return '—';
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }

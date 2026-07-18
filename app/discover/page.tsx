@@ -7,7 +7,6 @@ import NextActionHint from '@/components/common/NextActionHint';
 import { debugLog } from '@/lib/utils/debug';
 import TestModeGate from '@/components/common/TestModeGate';
 import { useDiscoverySummary } from '@/hooks/useDiscoverySummary';
-import { useRecentTrades } from '@/hooks/useRecentTrades';
 import { shortAddress, shortHash, timeAgo } from '@/lib/formatters';
 import type { DataSource, DiscoverySummaryResponse, RecentTradesResponse } from '@/lib/api/types';
 
@@ -31,23 +30,19 @@ type TokenCard = BaseToken & {
   nearMigration?: boolean;
   volumeSpike?: boolean;
   volumeValue: number;
-  change5mValue: number;
-  change1hValue: number;
-  change24hValue: number;
   tradeCount: number;
   createdAtValue: number;
 };
 
 export default function DiscoverPage() {
   const summary = useDiscoverySummary();
-  const trades = useRecentTrades();
   const [filter, setFilter] = useState<'hot' | 'moving' | 'nearMigration' | 'new'>('hot');
 
   const summarySource = getSourceTag(summary.data) ?? 'mock';
-  const tradesSource = getSourceTag(trades.data) ?? summarySource;
+  const tradesSource = summarySource;
 
   const latestTokens = useMemo(() => summary.data?.latestTokens ?? [], [summary.data]);
-  const recentTradeList = useMemo<RecentTradesResponse>(() => trades.data ?? [], [trades.data]);
+  const recentTradeList = useMemo<RecentTradesResponse>(() => summary.data?.recentTrades ?? [], [summary.data]);
 
   const recentTradeMap = useMemo(() => buildRecentTradeMap(recentTradeList), [recentTradeList]);
 
@@ -75,11 +70,11 @@ export default function DiscoverPage() {
 
   const recentlyTraded = useMemo<RecentTradesResponse>(() => recentTradeList.slice(0, 6), [recentTradeList]);
 
-  const loading = summary.isLoading && trades.isLoading;
+  const loading = summary.isLoading;
   const dataSourceMessage = `Data source: ${describeSource(summarySource)}${
     tradesSource !== summarySource ? ` · Trades: ${describeSource(tradesSource)}` : ''
   }`;
-  const dataSourceTone = summarySource === 'api' ? 'info' : summarySource === 'snapshot' ? 'warn' : 'error';
+  const dataSourceTone = summarySource === 'live' ? 'info' : summarySource === 'snapshot' ? 'warn' : 'error';
 
   return (
     <div className="space-y-6">
@@ -100,8 +95,8 @@ export default function DiscoverPage() {
         <NextActionHint message={dataSourceMessage} tone={dataSourceTone} />
         <TestModeGate>
           <p className="text-xs text-white/60">
-            {summarySource === 'api'
-              ? 'Indexer live — displaying the freshest activity from Sepolia.'
+            {summarySource === 'live'
+              ? 'Live API — displaying the freshest activity from Sepolia.'
               : summarySource === 'snapshot'
                 ? 'Displaying the latest snapshot while the live indexer catches up.'
                 : 'Mock data only — waiting for the indexer to provide live markets.'}
@@ -204,7 +199,7 @@ function TokenGrid({ tokens, emptyLabel }: { tokens: TokenCard[]; emptyLabel: st
               <div>
                 <p className="text-sm text-white/60">{shortAddress(token.token_address)}</p>
                 <p className="text-lg font-semibold text-white">
-                  {token.name} <span className="text-white/60">· {token.symbol}</span>
+                  {token.name || `Token #${token.token_id}`} <span className="text-white/60">· {token.symbol || 'TKN'}</span>
                 </p>
               </div>
             </div>
@@ -224,15 +219,10 @@ function TokenGrid({ tokens, emptyLabel }: { tokens: TokenCard[]; emptyLabel: st
             <Metric label="Trades (24h)" value={token.tradeCount.toString()} />
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-            <ChangeBadge label="5m" value={token.change5m} />
-            <ChangeBadge label="1h" value={token.change1h} />
-            <ChangeBadge label="24h" value={token.change24h} />
-          </div>
-
           <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-white/70">
-            <span>Pair {token.symbol}/{resolveQuoteSymbol(token.quote_token_address)}</span>
+            <span>Pair {token.symbol || 'TKN'}/ETH</span>
             <StatusBadge status={token.status} />
+            <span>{Math.round(token.bonding_progress * 100)}% bonded</span>
             {token.volumeSpike && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-200">Volume spike</span>}
           </div>
           </Link>
@@ -292,7 +282,7 @@ function TradesFeed({ trades, latestTokens }: { trades: RecentTradesResponse; la
             </span>
             <div className="flex flex-col">
               <span className="font-semibold">{trade.token_name || `Token #${String(trade.token_id)}`}</span>
-              <span className="text-white/60">{resolveQuoteSymbol(trade.quote_token_address)}</span>
+              <span className="text-white/60">{trade.quote_symbol}</span>
             </div>
             <span className="text-xs text-white/60">{timeAgo(trade.timestamp)}</span>
             <span className="text-xs text-white/60">{formatTradeAmount(trade)}</span>
@@ -333,17 +323,6 @@ function getTokenLabels(token: TokenCard) {
   return labels;
 }
 
-function ChangeBadge({ label, value }: { label: string; value?: string }) {
-  const parsed = parsePercent(value);
-  const tone = parsed > 0 ? 'text-emerald-300' : parsed < 0 ? 'text-rose-300' : 'text-white/60';
-  return (
-    <div className="rounded-2xl border border-white/10 bg-slate-900/70 px-3 py-2">
-      <p className="text-[11px] uppercase tracking-wide text-white/40">{label}</p>
-      <p className={`text-sm font-semibold ${tone}`}>{value ?? '—'}</p>
-    </div>
-  );
-}
-
 function StatusBadge({ status }: { status?: string }) {
   const label = status === 'migrated' ? 'Migrated' : status === 'migration_pending' ? 'Migrating' : 'Curve live';
   const tone = status === 'migrated' ? 'bg-indigo-500/20 text-indigo-200' : status === 'migration_pending' ? 'bg-amber-500/20 text-amber-200' : 'bg-emerald-500/20 text-emerald-200';
@@ -358,12 +337,6 @@ function SkeletonPanel({ text }: { text: string }) {
   return <div className="rounded-3xl border border-white/10 bg-slate-900/60 p-4 text-white/60 animate-pulse">{text}</div>;
 }
 
-function parsePercent(value?: string) {
-  if (!value) return 0;
-  const numeric = Number(value.replace('%', ''));
-  return Number.isFinite(numeric) ? numeric : 0;
-}
-
 function parseNumber(value?: string) {
   if (!value) return 0;
   const numeric = Number(value);
@@ -372,25 +345,19 @@ function parseNumber(value?: string) {
 
 function enrichToken(token: BaseToken, recentTradeMap: Set<string>): TokenCard {
   const volumeValue = parseNumber(token.volume24h);
-  const change5mValue = parsePercent(token.change5m);
-  const change1hValue = parsePercent(token.change1h);
-  const change24hValue = parsePercent(token.change24h);
-  const tradeCount = 'trades24h' in token && typeof token.trades24h === 'number' ? token.trades24h : parseInt(token.volume24h ?? '0', 10) || 0;
-  const createdAtValue = token.createdAt ? Date.parse(token.createdAt) : Date.now();
+  const tradeCount = token.trades24h;
+  const createdAtValue = token.last_trade_time ? Date.parse(token.last_trade_time) : Date.now();
   const ageMs = Date.now() - createdAtValue;
   const recentlyActive = recentTradeMap.has(token.token_id);
   const isHot = tradeCount >= 10 || volumeValue >= 5 || recentlyActive;
-  const isNew = ageMs <= NEW_WINDOW_MS || !token.createdAt;
-  const isMoving = Math.abs(change5mValue) >= 2 || Math.abs(change1hValue) >= 5 || recentlyActive;
-  const nearMigration = token.status === 'migration_pending' || (Boolean(token.launchpad_market) && token.status !== 'migrated');
-  const volumeSpike = volumeValue >= 10 && (change24hValue > 5 || recentlyActive);
+  const isNew = ageMs <= NEW_WINDOW_MS || !token.last_trade_time;
+  const isMoving = token.bonding_progress >= 0.35 || recentlyActive;
+  const nearMigration = token.migration_status === 'ready' || token.status === 'migration_pending' || token.bonding_progress >= 0.75;
+  const volumeSpike = volumeValue >= 10 && recentlyActive;
 
   return {
     ...token,
     volumeValue,
-    change5mValue,
-    change1hValue,
-    change24hValue,
     tradeCount,
     createdAtValue,
     isHot,
@@ -420,9 +387,9 @@ function trendingSort(a: TokenCard, b: TokenCard) {
 }
 
 function describeSource(source: DataSource) {
-  if (source === 'api') return 'Live indexer';
-  if (source === 'snapshot') return 'Indexer snapshot';
-  return 'Mock fallback';
+  if (source === 'live') return 'Live API';
+  if (source === 'snapshot') return 'Snapshot';
+  return 'Mock';
 }
 
 function filterLabel(filter: 'hot' | 'moving' | 'nearMigration' | 'new') {
@@ -439,18 +406,13 @@ function filterDescription(filter: 'hot' | 'moving' | 'nearMigration' | 'new') {
   return 'Fresh launches in their earliest trading window';
 }
 
-function resolveQuoteSymbol(value?: string) {
-  if (!value || value.toLowerCase().includes('fff997')) return 'WETH';
-  return shortAddress(value);
-}
-
 function formatTradeAmount(trade: RecentTradesResponse[number]) {
-  if (trade.native_in) return `${(Number(trade.native_in) / 1e18).toFixed(4)} ETH`;
-  if (trade.token_out) return `${Number(trade.token_out).toLocaleString()} TOKEN`;
+  if (trade.quote_amount) return `${trade.quote_amount} ${trade.quote_symbol}`;
+  if (trade.base_amount) return `${trade.base_amount} TOKEN`;
   return '—';
 }
 
-function formatPrice(value?: string) {
+function formatPrice(value?: string | null) {
   if (!value) return '—';
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '—';

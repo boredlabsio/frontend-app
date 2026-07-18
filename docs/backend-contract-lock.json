@@ -1,0 +1,12 @@
+{
+  "repository": "boredlabsio/meraki-protocol",
+  "branch": "main",
+  "commit": "eda91a012f87480f7246766534f56035af65104f",
+  "schemaPath": "indexer/api/schemas.js",
+  "schemaSha256": "2d3c0dc8d6bbf77c01072243d6df738ed13b57596dfb141a2c954abb07b1d44b",
+  "generatedFiles": [
+    "lib/api/generated/contracts.ts"
+  ],
+  "generator": "scripts/sync-backend-contracts.mjs",
+  "generatorVersion": 1
+}

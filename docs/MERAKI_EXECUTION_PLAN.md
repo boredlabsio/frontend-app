@@ -115,7 +115,7 @@ Additional tables for migrations, rewards, leaderboards follow similar pattern a
 Version tags use `V1`. Any breaking change increments suffix.
 
 ```ts
-// Token summary served at GET /tokens/:id/summary
+// Token summary served at canonical GET /tokens/:id
 export interface TokenSummaryV1 {
   schema: 'TokenSummaryV1';
   token_id: string;              // canonical string id
@@ -343,7 +343,7 @@ Before starting S1, the following must succeed and be documented:
 
 ## 10. Updated Slice 1 Scope
 - **Objective**: Build **and deploy** the Live Indexer API backed by Postgres (`tokens`, `trades`).
-- **In-Scope**: Event ingestion, REST endpoints `/discovery/summary`, `/tokens/:id/summary`, `/tokens/:id/trades`, schema validation, API tests, Docker compose for DB, feature flag for frontend consumption.
+- **In-Scope**: Event ingestion, REST endpoints `/discovery/summary`, `/tokens/:id`, `/tokens/:id/trades`, schema validation, API tests, Docker compose for DB, feature flag for frontend consumption.
 - **Out-of-Scope**: Rewards, migration, analytics, buy/sell endpoints (covered later slices).
 - **Dependencies satisfied**: Database decision, schema definitions, fixtures, env examples (Slice 0 deliverables). If ASTER staging RPC unresolved, S1 uses Sepolia only.
 

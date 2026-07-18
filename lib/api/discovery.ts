@@ -1,69 +1,99 @@
-import type { DataSource, DiscoverySummaryResponse, TokenSummaryResponse, RecentTradesResponse } from '@/lib/api/types';
-import { apiAvailable, api } from './client';
+import type { DataSource, DiscoverySummaryResponse, TokenSummaryResponse, RecentTradesResponse, SourceTagged } from '@/lib/api/types';
+import { apiAvailable, api, ApiClientError, isApiClientError } from './client';
 import { summaryMock, getMockTokenSummary, getMockRecentTrades } from '@/lib/mockData';
 import { fetchDiscoverySnapshot, getTokenSummaryFromSnapshot, getRecentTradesFromSnapshot } from './snapshot';
+import { debugLog } from '@/lib/utils/debug';
 
-function withSource<T>(value: T, source: DataSource): T & { __source: DataSource } {
-  if (Array.isArray(value)) {
-    return Object.assign([...value], { __source: source }) as unknown as T & { __source: DataSource };
+export class DataNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DataNotFoundError';
   }
-  return { ...(value as Record<string, unknown>), __source: source } as T & { __source: DataSource };
 }
 
-export function useDiscoverySummaryFallback(): DiscoverySummaryResponse & { __source: DataSource } {
+function withSource<T>(value: T, source: DataSource): SourceTagged<T> {
+  if (Array.isArray(value)) {
+    return Object.assign([...value], { __source: source }) as unknown as SourceTagged<T>;
+  }
+  return { ...(value as Record<string, unknown>), __source: source } as SourceTagged<T>;
+}
+
+function shouldFallbackFromLive(error: unknown) {
+  if (!isApiClientError(error)) return true;
+  return error.category !== 'not_found' && error.category !== 'disabled' && error.category !== 'misconfigured';
+}
+
+function logFallback(label: string, error: unknown) {
+  if (isApiClientError(error)) {
+    debugLog(label, { category: error.category, status: error.status });
+    return;
+  }
+  debugLog(label, { error: error instanceof Error ? error.message : 'unknown' });
+}
+
+export function useDiscoverySummaryFallback(): SourceTagged<DiscoverySummaryResponse> {
   return withSource({ ...summaryMock }, 'mock');
 }
 
-export async function fetchDiscoverySummary(): Promise<DiscoverySummaryResponse & { __source: DataSource }> {
+export async function fetchDiscoverySummary(): Promise<SourceTagged<DiscoverySummaryResponse>> {
   if (apiAvailable) {
     try {
-      const data = await api.getDiscoverySummary();
-      return withSource(data, 'api');
+      return withSource(await api.getDiscoverySummary(), 'live');
     } catch (err) {
-      console.warn('[discovery] API failed, trying snapshot', err);
+      logFallback('[discovery] live API rejected, trying snapshot', err);
+      if (!shouldFallbackFromLive(err)) throw err;
     }
   }
 
   const snapshot = await fetchDiscoverySnapshot();
-  if (snapshot) {
-    return withSource(snapshot, 'snapshot');
-  }
+  if (snapshot) return withSource(snapshot, 'snapshot');
 
   return withSource({ ...summaryMock }, 'mock');
 }
 
-export async function fetchTokenSummary(tokenId: string): Promise<TokenSummaryResponse & { __source: DataSource }> {
+export async function fetchTokenSummary(tokenId: string): Promise<SourceTagged<TokenSummaryResponse>> {
+  if (!tokenId || tokenId === 'missing') {
+    throw new DataNotFoundError('Token id missing');
+  }
+
   if (apiAvailable) {
     try {
-      const data = await api.getTokenSummary(tokenId);
-      return withSource(data, 'api');
+      return withSource(await api.getTokenSummary(tokenId), 'live');
     } catch (err) {
-      console.warn(`[token-summary] API failed for ${tokenId}, trying snapshot`, err);
+      logFallback(`[token-summary] live API rejected for ${tokenId}`, err);
+      if (err instanceof ApiClientError && err.category === 'not_found') {
+        throw new DataNotFoundError(`Token ${tokenId} not found`);
+      }
+      if (!shouldFallbackFromLive(err)) throw err;
     }
   }
 
   const snapshotSummary = await getTokenSummaryFromSnapshot(tokenId);
-  if (snapshotSummary) {
-    return withSource(snapshotSummary, 'snapshot');
-  }
+  if (snapshotSummary) return withSource(snapshotSummary, 'snapshot');
 
-  return withSource(getMockTokenSummary(tokenId), 'mock');
+  const mock = getMockTokenSummary(tokenId);
+  if (mock) return withSource(mock, 'mock');
+
+  throw new DataNotFoundError(`Token ${tokenId} not found`);
 }
 
-export async function fetchRecentTrades(tokenId?: string): Promise<RecentTradesResponse & { __source: DataSource }> {
+export async function fetchRecentTrades(tokenId?: string): Promise<SourceTagged<RecentTradesResponse>> {
   if (apiAvailable) {
     try {
-      const data = await api.getRecentTrades(tokenId);
-      return withSource(data, 'api');
+      if (tokenId && tokenId !== 'missing') {
+        return withSource(await api.getRecentTrades(tokenId), 'live');
+      }
+      const summary = await api.getDiscoverySummary();
+      return withSource(summary.recentTrades, 'live');
     } catch (err) {
-      console.warn('[recent-trades] API failed, trying snapshot', err);
+      logFallback('[recent-trades] live API rejected, trying snapshot', err);
+      if (err instanceof ApiClientError && err.category === 'not_found') return withSource([], 'live');
+      if (!shouldFallbackFromLive(err)) throw err;
     }
   }
 
-  const snapshotTrades = await getRecentTradesFromSnapshot(tokenId);
-  if (snapshotTrades) {
-    return withSource(snapshotTrades, 'snapshot');
-  }
+  const snapshotTrades = await getRecentTradesFromSnapshot(tokenId && tokenId !== 'missing' ? tokenId : undefined);
+  if (snapshotTrades) return withSource(snapshotTrades, 'snapshot');
 
-  return withSource(getMockRecentTrades(tokenId), 'mock');
+  return withSource(getMockRecentTrades(tokenId && tokenId !== 'missing' ? tokenId : undefined), 'mock');
 }
