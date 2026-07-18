@@ -6,7 +6,7 @@ import { summaryMock, getMockTokenSummary, getMockRecentTrades } from '../../lib
 
 test('generated contracts are pinned to the canonical backend commit', () => {
   assert.equal(backendContractLock.repository, 'boredlabsio/meraki-protocol');
-  assert.equal(backendContractLock.commit, 'eda91a012f87480f7246766534f56035af65104f');
+  assert.equal(backendContractLock.commit, '5f0f69c4b7dfcd31ce2af0d5d44a6b93d4e7a8dc');
 });
 
 test('approved snapshot and mock payloads validate against V1 schemas', () => {

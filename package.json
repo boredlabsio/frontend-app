@@ -12,6 +12,9 @@
     "test:slice2:e2e": "node --import tsx --test tests/slice2/component-flow.test.tsx",
     "scan:slice2": "node scripts/scan-slice2-safety.mjs",
     "verify:slice2": "npm run verify:contracts && npm run test:slice2:unit && npm run test:slice2:e2e && npm run lint && npm run build && git diff --check && npm run scan:slice2"
+    ,"test:slice3": "node --import tsx --test tests/slice3/*.test.ts"
+    ,"scan:slice3": "node scripts/scan-slice3-safety.mjs"
+    ,"verify:slice3": "npm run verify:contracts && npm run test:slice2:unit && npm run test:slice2:e2e && npm run test:slice3 && npm run lint && npm run build && git diff --check && npm run scan:slice3"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.2.10",

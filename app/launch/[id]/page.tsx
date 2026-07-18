@@ -10,6 +10,8 @@ import { useRecentTrades } from '@/hooks/useRecentTrades';
 import { useDiscoverySummary } from '@/hooks/useDiscoverySummary';
 import { debugLog } from '@/lib/utils/debug';
 import { shortAddress, shortHash, timeAgo } from '@/lib/formatters';
+import BuyPanel from '@/components/launch/BuyPanel';
+import { env } from '@/lib/config/env';
 
 function getSourceTag(value: unknown): DataSource | undefined {
   if (value && typeof value === 'object' && '__source' in value) {
@@ -126,6 +128,7 @@ export function LaunchDetail({ tokenId }: { tokenId: string }) {
       </section>
 
       <PriceSparkline trades={tradesData} price={displayPrice} volume={displayVolume} />
+      {info && env.buyEnabled && <BuyPanel token={info} source={dataSource} />}
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">Recent activity</h2>

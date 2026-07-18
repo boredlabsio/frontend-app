@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type { LeaderboardResponse, UserRewardsResponse, ActivityResponse, ClaimableResponse, DiscoverySummaryResponse, TokenSummaryResponse, RecentTradesResponse, ApiErrorResponse, DataErrorCategory } from '@/lib/api/types';
-import { apiErrorSchema, discoverySummarySchema, tokenSummarySchema, tokenTradesResponseSchema } from '@/lib/api/generated/contracts';
+import { apiErrorSchema, discoverySummarySchema, tokenSummarySchema, tokenTradesResponseSchema, buyQuoteSchema, type BuyQuoteV1 } from '@/lib/api/generated/contracts';
 import { env } from '@/lib/config/env';
 
 export const apiAvailable = env.liveDataEnabled && env.apiBaseValid;
@@ -108,6 +108,6 @@ export const api = {
     const response = await requestValidated(`/tokens/${encodeURIComponent(tokenId)}/trades`, tokenTradesResponseSchema);
     return response.trades;
   },
-  getQuoteBuy: (tokenId: string, amountInEth: string) => requestLegacy<{ amountOut: string }>(`/tokens/${encodeURIComponent(tokenId)}/quote/buy?amount=${encodeURIComponent(amountInEth)}`),
+  getQuoteBuy: (tokenId: string, amount: string, slippageBps = 100) => requestValidated<BuyQuoteV1>(`/tokens/${encodeURIComponent(tokenId)}/quote?side=buy&amount=${encodeURIComponent(amount)}&slippageBps=${slippageBps}`, buyQuoteSchema),
   getQuoteSell: (tokenId: string, amountInToken: string) => requestLegacy<{ amountOut: string }>(`/tokens/${encodeURIComponent(tokenId)}/quote/sell?amount=${encodeURIComponent(amountInToken)}`)
 };

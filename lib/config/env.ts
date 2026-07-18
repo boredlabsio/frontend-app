@@ -33,6 +33,9 @@ export const env = {
   apiTimeoutMs: parsePositiveInt(process.env.NEXT_PUBLIC_API_TIMEOUT_MS, 2_000),
   discoverySnapshotUrl: process.env.NEXT_PUBLIC_SUMMARY_SNAPSHOT_URL || '/snapshots/discovery-summary.v1.json',
   debugLogs: parsePublicBoolean(process.env.NEXT_PUBLIC_DEBUG_LOGS, false),
-  buyEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_FEATURE_ENABLE_BUY, false),
+  buyEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_BUY_ENABLED ?? process.env.NEXT_PUBLIC_FEATURE_ENABLE_BUY, false),
+  buyTestnetOnly: parsePublicBoolean(process.env.NEXT_PUBLIC_BUY_TESTNET_ONLY, true),
+  buyChainId: parsePositiveInt(process.env.NEXT_PUBLIC_BUY_CHAIN_ID, 11155111),
+  buyMaxNativeAmount: process.env.NEXT_PUBLIC_BUY_MAX_NATIVE_AMOUNT || '10000000000000000',
   sellEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_FEATURE_ENABLE_SELL, false)
 };

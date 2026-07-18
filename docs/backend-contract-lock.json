@@ -1,11 +1,14 @@
 {
   "repository": "boredlabsio/meraki-protocol",
   "branch": "main",
-  "commit": "eda91a012f87480f7246766534f56035af65104f",
+  "commit": "5f0f69c4b7dfcd31ce2af0d5d44a6b93d4e7a8dc",
   "schemaPath": "indexer/api/schemas.js",
-  "schemaSha256": "2d3c0dc8d6bbf77c01072243d6df738ed13b57596dfb141a2c954abb07b1d44b",
+  "schemaSha256": "d4c7ff726ab80fe39f3072b1ed4ab659b8b599b1f95ed534d34b9c168f445f4b",
+  "deploymentManifestPath": "deployments/sepolia.json",
+  "deploymentManifestSha256": "fd29baa42f99121de00e69b33542f5c6f68c75c9095039490fed11d9e4bb7250",
   "generatedFiles": [
-    "lib/api/generated/contracts.ts"
+    "lib/api/generated/contracts.ts",
+    "lib/api/generated/sepolia-deployment.ts"
   ],
   "generator": "scripts/sync-backend-contracts.mjs",
   "generatorVersion": 1
