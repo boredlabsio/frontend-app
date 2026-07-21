@@ -20,8 +20,8 @@ export function useLeaderboard(windowKey: 'all' | '7d' | '24h' = 'all', selfAddr
   });
 
   const error = query.isError ? (query.error as Error) : null;
-  const isMock = !apiAvailable || Boolean(error);
-  const base = query.data ?? leaderboardMock;
+  const isMock = !apiAvailable;
+  const base = query.data ?? (isMock ? leaderboardMock : []);
   const data = mapToEntries(base, selfAddress);
 
   return {

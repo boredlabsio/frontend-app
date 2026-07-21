@@ -128,7 +128,7 @@ export default function ClaimCard() {
   }, [txSuccess, refetchClaim, refetchRewards, resetWrite, showToast]);
 
   if (!isConnected) {
-    return <EmptyState title="Connect to claim" description="Your claimable points will appear here." />;
+    return <EmptyState title="Claims unavailable" description="No authoritative epoch or proof API is deployed. Wallet connection is not required." />;
   }
 
   if ((rewardsLoading || claimLoading) && wallet.connected) {
@@ -138,7 +138,7 @@ export default function ClaimCard() {
   if (rewardsError && !rewardsMock) {
     return (
       <ApiBanner
-        message="Failed to load rewards"
+        message="Rewards unavailable — the live rewards API is not implemented. Claims remain disabled."
         action={<button onClick={() => refetchRewards()} className="rounded-full bg-white/10 px-3 py-1 text-xs">Retry</button>}
       />
     );
@@ -147,7 +147,7 @@ export default function ClaimCard() {
   if (claimError && !claimMock) {
     return (
       <ApiBanner
-        message="Failed to load claim info"
+        message="Claims unavailable — no authoritative epoch or proof API is deployed."
         action={<button onClick={() => refetchClaim()} className="rounded-full bg-white/10 px-3 py-1 text-xs">Retry</button>}
       />
     );

@@ -1,8 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --background: #020617;
+  --foreground: #f8fafc;
+  --surface: #0f172a;
+  --surface-raised: #172033;
+  --muted: #cbd5e1;
+  --muted-strong: #e2e8f0;
+  --border: #475569;
+  --warning-background: #451a03;
+  --warning-foreground: #fef3c7;
 }
 
 @theme inline {
@@ -12,17 +20,56 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
+  min-height: 100%;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+/* Semantic fallbacks remain readable if generated utility rules are incomplete. */
+[data-app-shell] {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+[class*="bg-slate-900"],
+[class*="to-slate-900"] {
+  background-color: var(--surface);
+  color: var(--foreground);
+}
+
+[class*="text-white/40"],
+[class*="text-white/50"],
+[class*="text-white/60"] {
+  color: var(--muted);
+}
+
+[class*="text-white/70"],
+[class*="text-white/80"] {
+  color: var(--muted-strong);
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+[role="alert"] {
+  background: var(--warning-background);
+  color: var(--warning-foreground);
+}
+
+::selection {
+  background: #4f46e5;
+  color: #ffffff;
 }
 
 @keyframes confettiFall {

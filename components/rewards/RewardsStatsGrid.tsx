@@ -12,8 +12,8 @@ export default function RewardsStatsGrid() {
   if (!wallet.connected) {
     return (
       <div className="rounded-2xl border border-dashed border-white/20 bg-slate-900/40 p-6 text-white">
-        <p className="text-sm text-white/60">Connect to view stats</p>
-        <p className="text-2xl font-semibold">No activity yet</p>
+        <p className="text-sm text-white/60">Authoritative rewards API unavailable</p>
+        <p className="text-2xl font-semibold">Rewards unavailable</p>
       </div>
     );
   }
@@ -31,7 +31,7 @@ export default function RewardsStatsGrid() {
   if (error) {
     return (
       <ApiBanner
-        message="Failed to load rewards summary"
+        message="Rewards unavailable — the live rewards API is not implemented. No cached balances are being shown."
         action={<button onClick={() => refetch()} className="rounded-full bg-white/10 px-3 py-1 text-xs">Retry</button>}
       />
     );

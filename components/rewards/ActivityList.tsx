@@ -12,7 +12,7 @@ export default function ActivityList({ limit }: { limit?: number } = {}) {
   const { data, isLoading, error, refetch, isMock } = useActivityFeed(wallet.address);
 
   if (!wallet.connected) {
-    return <EmptyState title='No activity yet' description='Connect and make your first trade to earn points.' />;
+    return <EmptyState title='Rewards activity unavailable' description='No authoritative rewards activity API is deployed. Wallet connection is not required.' />;
   }
 
   if (isLoading) {
@@ -28,7 +28,7 @@ export default function ActivityList({ limit }: { limit?: number } = {}) {
   if (error && !isMock) {
     return (
       <ApiBanner
-        message="Failed to load activity"
+        message="Rewards activity unavailable — the live rewards API is not implemented. No cached activity is being shown."
         action={<button onClick={() => refetch()} className='rounded-full bg-white/10 px-3 py-1 text-xs'>Retry</button>}
       />
     );

@@ -36,10 +36,10 @@ export function useClaimable(address?: string | null) {
   });
 
   const error = query.isError ? (query.error as Error) : null;
-  const isMock = !apiAvailable || Boolean(error);
+  const isMock = !apiAvailable;
 
   const shaped = useMemo<ClaimHookData | null>(() => {
-    const base = query.data ?? (isMock ? fallbackResponse : enabled ? null : fallbackResponse);
+    const base = query.data ?? (isMock ? fallbackResponse : null);
     if (!base) return null;
 
     const epoch = base.epoch ?? null;
@@ -71,7 +71,7 @@ export function useClaimable(address?: string | null) {
       deadline,
       claimableAmountWei
     };
-  }, [enabled, isMock, query.data]);
+  }, [isMock, query.data]);
 
   return {
     data: shaped,

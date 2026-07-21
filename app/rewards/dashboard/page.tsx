@@ -18,7 +18,7 @@ export default function RewardsDashboardPage() {
 
   return (
     <div className='space-y-6'>
-      <NextActionHint message='Keep trading or referring wallets before the epoch closes to boost your rewards.' tone='info' />
+      <NextActionHint message='Rewards are unavailable until authoritative ledger APIs are deployed. No cached balances are shown in live mode.' tone='warn' />
       <RewardsStatsGrid />
       <ClaimCard />
       <ReferralBlock />

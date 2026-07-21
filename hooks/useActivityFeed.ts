@@ -16,7 +16,7 @@ export function useActivityFeed(address?: string | null) {
   });
 
   const error = query.isError ? (query.error as Error) : null;
-  const isMock = !apiAvailable || Boolean(error);
+  const isMock = !apiAvailable;
 
   const data: ActivityItemApi[] = query.data?.items ?? (isMock ? activityMock : []);
 

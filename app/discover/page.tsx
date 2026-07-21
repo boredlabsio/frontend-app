@@ -109,7 +109,14 @@ export default function DiscoverPage() {
       {!loading && (
         <div className="space-y-8">
           <Section title={filterLabel(filter)} description={filterDescription(filter)}>
-            <TokenGrid tokens={filteredTokens} emptyLabel="No tokens match this view yet." />
+            <TokenGrid
+              tokens={filteredTokens}
+              emptyLabel={
+                latestTokens.length === 0 && summarySource === 'live'
+                  ? 'Live API connected. No Sepolia tokens have been indexed yet; trading remains unavailable.'
+                  : 'No tokens match this view yet.'
+              }
+            />
           </Section>
 
           <Section title="Recently traded" description="Latest buys and sells across all tokens">

@@ -33,21 +33,21 @@ export default function LeaderboardTable() {
     return <EmptyState title="Connect your wallet" description="See where you stand once you start trading." />;
   }
 
+  if (error && !isMock) {
+    return (
+      <ApiBanner
+        message="Leaderboard unavailable — the live rewards API is not implemented. No sample ranks are being shown."
+        action={<button onClick={() => refetch()} className="rounded-full bg-white/10 px-3 py-1 text-xs">Retry</button>}
+      />
+    );
+  }
+
   if (!data?.length) {
     return <EmptyState title="No leaderboard data yet" description="Start trading to appear here." />;
   }
 
-  const banner =
-    error && !isMock ? (
-      <ApiBanner
-        message="Leaderboard failed to load"
-        action={<button onClick={() => refetch()} className="rounded-full bg-white/10 px-3 py-1 text-xs">Retry</button>}
-      />
-    ) : null;
-
   return (
     <div className="space-y-3">
-      {banner}
       <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4">
         <div className="hidden text-xs uppercase tracking-wide text-white/50 md:grid md:grid-cols-6 md:pb-3">
           <span>Rank</span>

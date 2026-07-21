@@ -16,8 +16,8 @@ export default function ActivityPage() {
         <span className="ml-auto text-xs">Window: 7 days</span>
       </div>
       <NextActionHint
-        message={wallet.connected ? 'New trades will land here within one indexer cycle (~15s).' : 'Connect a wallet to see the activity timeline.'}
-        tone={wallet.connected ? 'info' : 'warn'}
+        message={wallet.connected ? 'Rewards activity is unavailable until the authoritative API is deployed.' : 'Wallet connection is optional while rewards activity is unavailable.'}
+        tone="warn"
       />
       <ActivityList />
     </div>

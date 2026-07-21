@@ -26,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full bg-slate-950 text-white">
+    <html lang="en" data-theme="dark" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <body data-app-shell className="min-h-full bg-slate-950 text-white">
         <Providers>
           <TestModeGate>
             <div className="w-full border-b border-amber-400/30 bg-amber-500/10 text-center text-xs text-amber-100">

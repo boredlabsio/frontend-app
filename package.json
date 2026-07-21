@@ -11,10 +11,13 @@
     "test:slice2:unit": "node --import tsx --test tests/slice2/*.test.ts",
     "test:slice2:e2e": "node --import tsx --test tests/slice2/component-flow.test.tsx",
     "scan:slice2": "node scripts/scan-slice2-safety.mjs",
-    "verify:slice2": "npm run verify:contracts && npm run test:slice2:unit && npm run test:slice2:e2e && npm run lint && npm run build && git diff --check && npm run scan:slice2"
-    ,"test:slice3": "node --import tsx --test tests/slice3/*.test.ts"
-    ,"scan:slice3": "node scripts/scan-slice3-safety.mjs"
-    ,"verify:slice3": "npm run verify:contracts && npm run test:slice2:unit && npm run test:slice2:e2e && npm run test:slice3 && npm run lint && npm run build && git diff --check && npm run scan:slice3"
+    "verify:slice2": "npm run verify:contracts && npm run test:slice2:unit && npm run test:slice2:e2e && npm run lint && npm run build && git diff --check && npm run scan:slice2",
+    "test:slice3": "node --import tsx --test tests/slice3/*.test.ts",
+    "scan:slice3": "node scripts/scan-slice3-safety.mjs",
+    "verify:slice3": "npm run verify:contracts && npm run test:slice2:unit && npm run test:slice2:e2e && npm run test:slice3 && npm run lint && npm run build && git diff --check && npm run scan:slice3",
+    "test:slice35:unit": "node --import tsx --test tests/slice35/*.test.ts",
+    "test:slice35:visual": "playwright test tests/slice35/visual-routes.spec.ts",
+    "verify:slice35": "npm run test:slice35:unit && npm run lint && npm run build"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.2.10",
@@ -27,6 +30,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",

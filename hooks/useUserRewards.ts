@@ -16,9 +16,9 @@ export function useUserRewards(address?: string | null) {
   });
 
   const error = query.isError ? (query.error as Error) : null;
-  const isMock = !apiAvailable || Boolean(error);
+  const isMock = !apiAvailable;
   const fallback: UserRewardsResponse = userSummaryMock as UserRewardsResponse;
-  const data: UserRewardsResponse | null = query.data ?? (isMock ? fallback : enabled ? null : fallback);
+  const data: UserRewardsResponse | null = query.data ?? (isMock ? fallback : null);
 
   return {
     data,
