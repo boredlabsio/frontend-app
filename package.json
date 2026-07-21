@@ -17,6 +17,8 @@
     "verify:slice3": "npm run verify:contracts && npm run test:slice2:unit && npm run test:slice2:e2e && npm run test:slice3 && npm run lint && npm run build && git diff --check && npm run scan:slice3",
     "test:slice35:unit": "node --import tsx --test tests/slice35/*.test.ts",
     "test:slice35:visual": "playwright test tests/slice35/visual-routes.spec.ts",
+    "test:slice4:unit": "node --import tsx --test tests/slice4/creation.test.ts",
+    "test:slice4:browser": "playwright test tests/slice4/creation-browser.spec.ts",
     "verify:slice35": "npm run test:slice35:unit && npm run lint && npm run build"
   },
   "dependencies": {

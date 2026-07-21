@@ -46,5 +46,11 @@ export const env = {
   buyChainId: parsePositiveInt(process.env.NEXT_PUBLIC_BUY_CHAIN_ID, 11155111),
   buyMaxNativeAmount: process.env.NEXT_PUBLIC_BUY_MAX_NATIVE_AMOUNT || '10000000000000000',
   buyAllowedWallets: parseAddressAllowlist(process.env.NEXT_PUBLIC_BUY_ALLOWED_WALLETS),
-  sellEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_FEATURE_ENABLE_SELL, false)
+  tokenCreationEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_TOKEN_CREATION_ENABLED, false),
+  tokenCreationTestnetOnly: parsePublicBoolean(process.env.NEXT_PUBLIC_TOKEN_CREATION_TESTNET_ONLY, true),
+  tokenCreationChainId: parsePositiveInt(process.env.NEXT_PUBLIC_TOKEN_CREATION_CHAIN_ID, 11155111),
+  tokenCreationAllowedWallets: parseAddressAllowlist(process.env.NEXT_PUBLIC_TOKEN_CREATION_ALLOWED_WALLETS),
+  sellEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_SELL_ENABLED ?? process.env.NEXT_PUBLIC_FEATURE_ENABLE_SELL, false),
+  rewardsEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_REWARDS_ENABLED ?? process.env.NEXT_PUBLIC_FEATURE_ENABLE_REWARDS, false),
+  claimsEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_CLAIMS_ENABLED, false)
 };
