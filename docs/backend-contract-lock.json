@@ -1,7 +1,7 @@
 {
   "repository": "boredlabsio/meraki-protocol",
   "branch": "main",
-  "commit": "5f0f69c4b7dfcd31ce2af0d5d44a6b93d4e7a8dc",
+  "commit": "4b3b3c479737c6a412fa0d7e8ea340312d0681cc",
   "schemaPath": "indexer/api/schemas.js",
   "schemaSha256": "d4c7ff726ab80fe39f3072b1ed4ab659b8b599b1f95ed534d34b9c168f445f4b",
   "deploymentManifestPath": "deployments/sepolia.json",

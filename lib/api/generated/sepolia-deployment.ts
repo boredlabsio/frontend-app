@@ -1,4 +1,4 @@
-// Generated from boredlabsio/meraki-protocol@5f0f69c4b7dfcd31ce2af0d5d44a6b93d4e7a8dc:deployments/sepolia.json. Do not edit.
+// Generated from boredlabsio/meraki-protocol@4b3b3c479737c6a412fa0d7e8ea340312d0681cc:deployments/sepolia.json. Do not edit.
 export const sepoliaDeployment = {
   "schema": "MerakiDeploymentManifestV1",
   "chain": {

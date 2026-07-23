@@ -222,7 +222,7 @@ test('valid empty live response renders empty live state without fallback', asyn
   mode = 'empty';
   const view = renderWithQuery(<DiscoverPage />);
   assert.ok(await view.findByText('Data source: Live API'));
-  assert.ok(await view.findByText('No tokens match this view yet.'));
+  assert.ok(await view.findByText('Live API connected. No Sepolia tokens have been indexed yet; trading remains unavailable.'));
   assert.ok(await view.findByText('No trades yet.'));
   assert.equal(view.queryByText('Snapshot Meraki'), null);
 });
