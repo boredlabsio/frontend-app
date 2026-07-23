@@ -160,16 +160,19 @@ global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 let DiscoverPage: React.ComponentType;
 let LaunchDetail: React.ComponentType<{ tokenId: string }>;
 let clearSnapshotCacheForTests: () => void;
+let runtimeEnv: { snapshotFallbackEnabled: boolean; mockDataEnabled: boolean };
 
 test.before(async () => {
   const modules = await Promise.all([
     import('../../app/discover/page'),
     import('../../app/launch/[id]/page'),
-    import('../../lib/api/snapshot')
+    import('../../lib/api/snapshot'),
+    import('../../lib/config/env')
   ]);
   DiscoverPage = modules[0].default;
   LaunchDetail = modules[1].LaunchDetail;
   clearSnapshotCacheForTests = modules[2].clearSnapshotCacheForTests;
+  runtimeEnv = modules[3].env;
 });
 
 function renderWithQuery(element: React.ReactElement) {
@@ -190,6 +193,8 @@ test.afterEach(() => {
   requestCounts.clear();
   hydrationErrors.length = 0;
   mode = 'live';
+  runtimeEnv.snapshotFallbackEnabled = true;
+  runtimeEnv.mockDataEnabled = true;
 });
 
 test('live API renders discover and token detail with live provenance', async () => {
@@ -216,6 +221,17 @@ test('API unavailable, timeout, and malformed live data fall back to snapshot', 
     assert.ok(await view.findByText('Data source: Snapshot'));
     assert.ok((await view.findAllByText('Snapshot Meraki')).length >= 1);
   }
+});
+
+test('production-style live failure is explicit and never substituted with snapshot or mock data', async () => {
+  mode = 'unavailable';
+  runtimeEnv.snapshotFallbackEnabled = false;
+  runtimeEnv.mockDataEnabled = false;
+  const view = renderWithQuery(<DiscoverPage />);
+  assert.ok(await view.findByText('Live discovery unavailable'));
+  assert.ok(await view.findByText('Meraki could not verify current token data. No snapshot or mock markets are being shown.'));
+  assert.equal(view.queryByText('Snapshot Meraki'), null);
+  assert.equal(requestCounts.get('/snapshot'), undefined);
 });
 
 test('valid empty live response renders empty live state without fallback', async () => {

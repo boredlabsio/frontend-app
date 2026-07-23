@@ -3,6 +3,7 @@ import { apiAvailable, api, ApiClientError, isApiClientError } from './client';
 import { summaryMock, getMockTokenSummary, getMockRecentTrades } from '@/lib/mockData';
 import { fetchDiscoverySnapshot, getTokenSummaryFromSnapshot, getRecentTradesFromSnapshot } from './snapshot';
 import { debugLog } from '@/lib/utils/debug';
+import { env } from '@/lib/config/env';
 
 export class DataNotFoundError extends Error {
   constructor(message: string) {
@@ -32,6 +33,7 @@ function logFallback(label: string, error: unknown) {
 }
 
 export function useDiscoverySummaryFallback(): SourceTagged<DiscoverySummaryResponse> {
+  if (!env.mockDataEnabled) throw new ApiClientError('disabled', 'Mock discovery data is disabled');
   return withSource({ ...summaryMock }, 'mock');
 }
 
@@ -42,13 +44,19 @@ export async function fetchDiscoverySummary(): Promise<SourceTagged<DiscoverySum
     } catch (err) {
       logFallback('[discovery] live API rejected, trying snapshot', err);
       if (!shouldFallbackFromLive(err)) throw err;
+      if (!env.snapshotFallbackEnabled && !env.mockDataEnabled) throw err;
     }
+  } else if (!env.snapshotFallbackEnabled && !env.mockDataEnabled) {
+    throw new ApiClientError(env.liveDataEnabled ? 'misconfigured' : 'disabled', env.liveDataEnabled ? 'Live API base URL is missing or invalid' : 'Live data is disabled');
   }
 
-  const snapshot = await fetchDiscoverySnapshot();
-  if (snapshot) return withSource(snapshot, 'snapshot');
+  if (env.snapshotFallbackEnabled) {
+    const snapshot = await fetchDiscoverySnapshot();
+    if (snapshot) return withSource(snapshot, 'snapshot');
+  }
 
-  return withSource({ ...summaryMock }, 'mock');
+  if (env.mockDataEnabled) return withSource({ ...summaryMock }, 'mock');
+  throw new ApiClientError('unavailable', 'Live discovery data is unavailable');
 }
 
 export async function fetchTokenSummary(tokenId: string): Promise<SourceTagged<TokenSummaryResponse>> {
@@ -65,14 +73,21 @@ export async function fetchTokenSummary(tokenId: string): Promise<SourceTagged<T
         throw new DataNotFoundError(`Token ${tokenId} not found`);
       }
       if (!shouldFallbackFromLive(err)) throw err;
+      if (!env.snapshotFallbackEnabled && !env.mockDataEnabled) throw err;
     }
+  } else if (!env.snapshotFallbackEnabled && !env.mockDataEnabled) {
+    throw new ApiClientError(env.liveDataEnabled ? 'misconfigured' : 'disabled', env.liveDataEnabled ? 'Live API base URL is missing or invalid' : 'Live data is disabled');
   }
 
-  const snapshotSummary = await getTokenSummaryFromSnapshot(tokenId);
-  if (snapshotSummary) return withSource(snapshotSummary, 'snapshot');
+  if (env.snapshotFallbackEnabled) {
+    const snapshotSummary = await getTokenSummaryFromSnapshot(tokenId);
+    if (snapshotSummary) return withSource(snapshotSummary, 'snapshot');
+  }
 
-  const mock = getMockTokenSummary(tokenId);
-  if (mock) return withSource(mock, 'mock');
+  if (env.mockDataEnabled) {
+    const mock = getMockTokenSummary(tokenId);
+    if (mock) return withSource(mock, 'mock');
+  }
 
   throw new DataNotFoundError(`Token ${tokenId} not found`);
 }
@@ -89,11 +104,17 @@ export async function fetchRecentTrades(tokenId?: string): Promise<SourceTagged<
       logFallback('[recent-trades] live API rejected, trying snapshot', err);
       if (err instanceof ApiClientError && err.category === 'not_found') return withSource([], 'live');
       if (!shouldFallbackFromLive(err)) throw err;
+      if (!env.snapshotFallbackEnabled && !env.mockDataEnabled) throw err;
     }
+  } else if (!env.snapshotFallbackEnabled && !env.mockDataEnabled) {
+    throw new ApiClientError(env.liveDataEnabled ? 'misconfigured' : 'disabled', env.liveDataEnabled ? 'Live API base URL is missing or invalid' : 'Live data is disabled');
   }
 
-  const snapshotTrades = await getRecentTradesFromSnapshot(tokenId && tokenId !== 'missing' ? tokenId : undefined);
-  if (snapshotTrades) return withSource(snapshotTrades, 'snapshot');
+  if (env.snapshotFallbackEnabled) {
+    const snapshotTrades = await getRecentTradesFromSnapshot(tokenId && tokenId !== 'missing' ? tokenId : undefined);
+    if (snapshotTrades) return withSource(snapshotTrades, 'snapshot');
+  }
 
-  return withSource(getMockRecentTrades(tokenId && tokenId !== 'missing' ? tokenId : undefined), 'mock');
+  if (env.mockDataEnabled) return withSource(getMockRecentTrades(tokenId && tokenId !== 'missing' ? tokenId : undefined), 'mock');
+  throw new ApiClientError('unavailable', 'Live trade data is unavailable');
 }

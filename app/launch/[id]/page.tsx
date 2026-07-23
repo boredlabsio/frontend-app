@@ -12,6 +12,7 @@ import { debugLog } from '@/lib/utils/debug';
 import { shortAddress, shortHash, timeAgo } from '@/lib/formatters';
 import BuyPanel from '@/components/launch/BuyPanel';
 import { env } from '@/lib/config/env';
+import { DataNotFoundError } from '@/lib/api/discovery';
 
 function getSourceTag(value: unknown): DataSource | undefined {
   if (value && typeof value === 'object' && '__source' in value) {
@@ -72,14 +73,17 @@ export function LaunchDetail({ tokenId }: { tokenId: string }) {
           : 'Bonding curve active';
 
   if (summary.isError && !summary.data) {
+    const notFound = summary.error instanceof DataNotFoundError;
     return (
       <div className="space-y-6">
         <BackLink />
-        <NextActionHint message={`Token ${routeTokenId || 'missing'} not found`} tone="error" />
+        <NextActionHint message={notFound ? `Token ${routeTokenId || 'missing'} not found` : 'Live token data unavailable'} tone="error" />
         <section className="rounded-3xl border border-white/10 bg-slate-900/60 p-6 text-white">
           <p className="text-sm text-white/60">Token #{routeTokenId || 'missing'}</p>
-          <h1 className="text-3xl font-semibold">Token not found</h1>
-          <p className="mt-2 text-sm text-white/70">This route did not resolve through live, snapshot, or approved mock data.</p>
+          <h1 className="text-3xl font-semibold">{notFound ? 'Token not found' : 'Live data unavailable'}</h1>
+          <p className="mt-2 text-sm text-white/70">
+            {notFound ? 'No canonical token matches this route.' : 'Meraki could not verify current token data. No snapshot or mock token is being shown.'}
+          </p>
         </section>
       </div>
     );

@@ -33,6 +33,7 @@ function parseAddressAllowlist(value: string | undefined) {
 }
 
 const apiBase = normalizeApiBase(process.env.NEXT_PUBLIC_API_BASE);
+const nonProduction = process.env.NODE_ENV !== 'production';
 
 export const env = {
   liveDataEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_LIVE_DATA_ENABLED, false),
@@ -40,6 +41,8 @@ export const env = {
   apiBaseValid: apiBase.valid,
   apiTimeoutMs: parsePositiveInt(process.env.NEXT_PUBLIC_API_TIMEOUT_MS, 2_000),
   discoverySnapshotUrl: process.env.NEXT_PUBLIC_SUMMARY_SNAPSHOT_URL || '/snapshots/discovery-summary.v1.json',
+  snapshotFallbackEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_SNAPSHOT_FALLBACK_ENABLED, nonProduction),
+  mockDataEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_MOCK_DATA_ENABLED, nonProduction),
   debugLogs: parsePublicBoolean(process.env.NEXT_PUBLIC_DEBUG_LOGS, false),
   buyEnabled: parsePublicBoolean(process.env.NEXT_PUBLIC_BUY_ENABLED ?? process.env.NEXT_PUBLIC_FEATURE_ENABLE_BUY, false),
   buyTestnetOnly: parsePublicBoolean(process.env.NEXT_PUBLIC_BUY_TESTNET_ONLY, true),

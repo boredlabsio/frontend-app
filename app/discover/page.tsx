@@ -38,7 +38,7 @@ export default function DiscoverPage() {
   const summary = useDiscoverySummary();
   const [filter, setFilter] = useState<'hot' | 'moving' | 'nearMigration' | 'new'>('hot');
 
-  const summarySource = getSourceTag(summary.data) ?? 'mock';
+  const summarySource = getSourceTag(summary.data);
   const tradesSource = summarySource;
 
   const latestTokens = useMemo(() => summary.data?.latestTokens ?? [], [summary.data]);
@@ -106,7 +106,17 @@ export default function DiscoverPage() {
 
       {loading && <SkeletonPanel text="Loading discovery data…" />}
 
-      {!loading && (
+      {!loading && summary.isError && !summary.data && (
+        <section className="rounded-3xl border border-rose-400/30 bg-rose-500/10 p-6 text-white">
+          <h2 className="text-xl font-semibold">Live discovery unavailable</h2>
+          <p className="mt-2 text-sm text-rose-100">Meraki could not verify current token data. No snapshot or mock markets are being shown.</p>
+          <button className="mt-4 rounded-full border border-white/30 px-4 py-2 text-sm" onClick={() => summary.refetch()}>
+            Retry live data
+          </button>
+        </section>
+      )}
+
+      {!loading && !summary.isError && (
         <div className="space-y-8">
           <Section title={filterLabel(filter)} description={filterDescription(filter)}>
             <TokenGrid
@@ -393,10 +403,11 @@ function trendingSort(a: TokenCard, b: TokenCard) {
   return b.volumeValue - a.volumeValue;
 }
 
-function describeSource(source: DataSource) {
+function describeSource(source?: DataSource) {
   if (source === 'live') return 'Live API';
   if (source === 'snapshot') return 'Snapshot';
-  return 'Mock';
+  if (source === 'mock') return 'Mock';
+  return 'Unavailable';
 }
 
 function filterLabel(filter: 'hot' | 'moving' | 'nearMigration' | 'new') {
