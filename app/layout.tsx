@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Pump Launchpad',
-  description: 'Trade launches and climb the rewards leaderboard.'
+  title: 'Meraki',
+  description: 'Discover and trade Sepolia launchpad tokens.'
 };
 
 export default function RootLayout({
@@ -31,7 +31,7 @@ export default function RootLayout({
         <Providers>
           <TestModeGate>
             <div className="w-full border-b border-amber-400/30 bg-amber-500/10 text-center text-xs text-amber-100">
-              Sepolia Test Mode · Test rewards only · Transactions do not hold mainnet value
+              Sepolia Test Mode · Test transactions do not hold mainnet value
             </div>
           </TestModeGate>
           <AppHeader />

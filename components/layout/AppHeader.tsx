@@ -6,13 +6,8 @@ import WalletPlaceholder from '../wallet/WalletPlaceholder';
 import SoundToggle from '../wallet/SoundToggle';
 
 const navLinks = [
-  { href: '/', label: 'Dashboard' },
-  { href: '/discover', label: 'Discover' },
-  { href: '/launch/create', label: 'Launch' },
-  { href: '/activity', label: 'Activity' },
-  { href: '/rewards/leaderboard', label: 'Leaderboard' },
-  { href: '/rewards/dashboard', label: 'Rewards' },
-  { href: '/rewards/claim', label: 'Claim' }
+  { href: '/', label: 'Home' },
+  { href: '/discover', label: 'Discover' }
 ];
 
 function NavLink({ href, label }: { href: string; label: string }) {
@@ -36,7 +31,7 @@ export default function AppHeader() {
     <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link href="/" className="text-lg font-semibold text-white">
-          Pump Launchpad
+          Meraki
         </Link>
         <nav className="hidden items-center gap-2 md:flex">
           {navLinks.map((link) => (

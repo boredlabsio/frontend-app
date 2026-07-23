@@ -83,7 +83,7 @@ export default function DiscoverPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-semibold text-white">Discover tokens</h1>
-            <NextActionHint message="Track trending launches, chase rewards, and jump into trading." />
+            <NextActionHint message="Inspect canonical Sepolia tokens and open their live market pages." />
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
             <FilterButton label="Hot" active={filter === 'hot'} onClick={() => setFilter('hot')} />
@@ -133,9 +133,6 @@ export default function DiscoverPage() {
             <TradesFeed trades={recentlyTraded} latestTokens={latestTokens} />
           </Section>
 
-          <Section title="Watchlist" description="Pinned pairs coming soon">
-            <WatchlistPlaceholder />
-          </Section>
         </div>
       )}
     </div>
@@ -308,15 +305,6 @@ function TradesFeed({ trades, latestTokens }: { trades: RecentTradesResponse; la
           </Link>
         );
       })}
-    </div>
-  );
-}
-
-function WatchlistPlaceholder() {
-  return (
-    <div className="rounded-3xl border border-dashed border-white/20 bg-slate-900/40 p-6 text-white/70">
-      <p className="text-lg font-semibold text-white">Personal watchlist</p>
-      <p className="mt-2 text-sm">Save your favorite bonding-curve launches and migrated pools for quick access. Coming soon.</p>
     </div>
   );
 }
