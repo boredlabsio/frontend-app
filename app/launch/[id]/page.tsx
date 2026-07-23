@@ -193,8 +193,22 @@ function PriceSparkline({ trades, price, volume }: { trades: RecentTradesRespons
   const width = 400;
   const height = 140;
   const pricePoints = trades.map((trade) => Number(trade.execution_price_native)).filter((value) => Number.isFinite(value));
-  const fallback = Number(price) || 0.01;
-  const data = pricePoints.length >= 2 ? pricePoints.slice(-20) : Array.from({ length: 12 }, (_, index) => fallback * (1 + Math.sin(index / 2) * 0.02));
+  const data = pricePoints.slice(-20);
+
+  if (data.length < 2) {
+    return (
+      <section className="rounded-3xl border border-white/10 bg-slate-900/60 p-6 shadow-inner">
+        <p className="text-sm text-white/60">Price history</p>
+        <p className="mt-1 text-lg font-semibold text-white">Insufficient trade data</p>
+        <p className="mt-2 text-sm text-white/70">At least two real indexed trades are required before Meraki draws a price chart.</p>
+        <div className="mt-3 text-sm text-white/70">
+          <span className="mr-4">Spot {price} ETH</span>
+          <span>24h vol {volume} ETH</span>
+        </div>
+      </section>
+    );
+  }
+
   const min = Math.min(...data);
   const max = Math.max(...data);
   const range = max - min || 1;

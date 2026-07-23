@@ -85,6 +85,15 @@ const liveTrade = {
   timestamp: '2026-07-18T01:00:00.000Z'
 };
 
+const liveTrade2 = {
+  ...liveTrade,
+  trade_id: 'live:2',
+  quote_amount: '0.48',
+  execution_price_native: '0.0048',
+  tx_hash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  timestamp: '2026-07-18T01:01:00.000Z'
+};
+
 const snapshotToken = {
   ...liveToken,
   symbol: 'SNAP',
@@ -92,7 +101,7 @@ const snapshotToken = {
   priceNative: '0.0033'
 };
 
-function discovery(tokens = [liveToken], trades = [liveTrade]) {
+function discovery(tokens = [liveToken], trades = [liveTrade, liveTrade2]) {
   return {
     schema: 'DiscoverySummaryV1',
     generatedAt: '2026-07-18T01:00:00.000Z',
@@ -150,7 +159,7 @@ global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const tradesMatch = url.pathname.match(/^\/tokens\/([^/]+)\/trades$/);
   if (tradesMatch) {
     if (tradesMatch[1] === '2') return response(200, { token_id: '2', trades: [] });
-    if (tradesMatch[1] === '1') return response(200, { token_id: '1', trades: [liveTrade] });
+    if (tradesMatch[1] === '1') return response(200, { token_id: '1', trades: [liveTrade, liveTrade2] });
     return response(404, { schema: 'ApiErrorV1', error_code: 'token_not_found', message: 'not found', correlation_id: 'test' });
   }
 
@@ -209,6 +218,8 @@ test('live API renders discover and token detail with live provenance', async ()
   assert.ok(await detail.findByText('Data source: Live API'));
   assert.ok(await detail.findByText('Live Meraki'));
   assert.ok(await detail.findByText('0.42 ETH'));
+  assert.ok(detail.container.querySelector('polyline'));
+  assert.equal(detail.queryByText('Insufficient trade data'), null);
   assert.deepEqual(hydrationErrors, []);
 });
 
@@ -261,5 +272,6 @@ test('unknown token and no-trades states are deterministic', async () => {
   const quiet = renderWithQuery(<LaunchDetail tokenId="2" />);
   assert.ok(await quiet.findByText('Data source: Live API'));
   assert.ok(await quiet.findByText('Quiet Token'));
+  assert.ok(await quiet.findByText('Insufficient trade data'));
   assert.ok(await quiet.findByText('No trades yet.'));
 });
